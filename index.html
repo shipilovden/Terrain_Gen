@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SAM'S FORGE · Terrain</title>
+</head>
+<body style="margin:0;background:#0b0d10;color:#eef2f6;font:14px monospace;display:grid;place-items:center;height:100vh">
+<div id="s">Loading SAM'S FORGE…</div>
+<script src="app_data.js"></script>
+<script>
+async function main(){
+  const B64=window.__SF_GZ_B64;
+  if(!B64) throw new Error("missing data");
+  const bin=Uint8Array.from(atob(B64),c=>c.charCodeAt(0));
+  const ds=new DecompressionStream("gzip");
+  const stream=new Response(bin).body.pipeThrough(ds);
+  const html=await new Response(stream).text();
+  document.open();document.write(html);document.close();
+}
+main().catch(e=>{document.getElementById("s").textContent="Load failed: "+e;});
+</script>
+</body>
+</html>
