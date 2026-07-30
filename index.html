@@ -4,21 +4,21 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SAM'S FORGE · Terrain</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#eef2f6;
+font:14px 'Segoe UI',system-ui,sans-serif}
+.card{max-width:420px;padding:28px;border:1px solid #272d36;background:#12151a;border-radius:8px}
+h1{margin:0 0 8px;font-size:22px;color:#d4a017;letter-spacing:2px}
+p{color:#aeb7c2;line-height:1.5}
+code{background:#171b21;padding:2px 6px;border-radius:4px;color:#e6c45d}
+a{color:#d4a017}
+</style>
 </head>
-<body style="margin:0;background:#0b0d10;color:#eef2f6;font:14px monospace;display:grid;place-items:center;height:100vh">
-<div id="s">Loading SAM'S FORGE…</div>
-<script src="app_data.js"></script>
-<script>
-async function main(){
-  const B64=window.__SF_GZ_B64;
-  if(!B64) throw new Error("missing data");
-  const bin=Uint8Array.from(atob(B64),c=>c.charCodeAt(0));
-  const ds=new DecompressionStream("gzip");
-  const stream=new Response(bin).body.pipeThrough(ds);
-  const html=await new Response(stream).text();
-  document.open();document.write(html);document.close();
-}
-main().catch(e=>{document.getElementById("s").textContent="Load failed: "+e;});
-</script>
+<body>
+<div class="card">
+<h1>SAM'S FORGE</h1>
+<p>Full app deploy: upload <code>index.html</code> (the terrain tool file) to this Vercel project, or run <code>npx vercel --prod</code> locally.</p>
+<p>GitHub: <a href="https://github.com/shipilovden/sams-forge">shipilovden/sams-forge</a></p>
+</div>
 </body>
 </html>
