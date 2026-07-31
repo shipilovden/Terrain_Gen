@@ -1148,7 +1148,7 @@ function makeTemplate(kind){
     height[idx(x,y)]=h;
   }
   if(kind!=='blank') naturalizeHeightField(sea, peak);
-  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();render2d();dirty3d=true;
+  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();render2d();dirty3d=true;
   $('status').textContent=(kind==='island'?('island/'+islandKind):kind)+' · seed '+terrainSeed+' · naturalized';updateUndoButtons();
 }
 document.querySelectorAll('[data-template]').forEach(b=>b.onclick=()=>makeTemplate(b.dataset.template));
@@ -1266,7 +1266,7 @@ function importHeightmapFile(file){
       const gray=(y*0.299+u*0.587+v*0.114)/255;
       height[i]=lerp(sea,peak,gray);
     }
-    overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
+    overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();
     dirty3d=true;render2d();updateUndoButtons();
     $('status').textContent='heightmap imported · '+file.name;
     URL.revokeObjectURL(url);
@@ -1580,23 +1580,12 @@ function stampMask(cx,cy){
       const d=Math.hypot(x-cx,y-cy);if(d>r)continue;
       const i=idx(x,y),h=height[i],o=i*3;
       if(maskTool==='treeAdd'){
-        if(h<=Math.max(0.75,sea+0.5))continue;
+        if(h<=sea+0.5)continue;
         treeMask[i]=128; // force white / trees allowed
       }else if(maskTool==='treeBlock'){
         treeMask[i]=255; // force black / no trees
       }else{
         treeMask[i]=0;   // restore automatic forest result
-      }
-      // Keep the material vegetation channel in sync with the final tree permission mask.
-      // Explicit manual material painting still has priority.
-      if(!overrideA[i]){
-        const slope=terrainSlopeAt(x,y);
-        let rr=0,gg=0,bb=0;
-        if(h<=+$('pSandLimit').value) gg=255;
-        else if(slope>8.5) rr=255;
-        else if(treeAllowedAt(i,x,y)) bb=255;
-        autoRGB[o]=rr;autoRGB[o+1]=gg;autoRGB[o+2]=bb;
-        maskRGB[o]=rr;maskRGB[o+1]=gg;maskRGB[o+2]=bb;
       }
     }
     return;
@@ -1748,12 +1737,12 @@ if($('slopeAuto'))$('slopeAuto').onclick=generateSlopeAutoMask;
 
 $('maskLandOnly')?.addEventListener('change',()=>{if($('maskLandOnly').checked)$('maskSeaOnly').checked=false;});
 $('maskSeaOnly')?.addEventListener('change',()=>{if($('maskSeaOnly').checked)$('maskLandOnly').checked=false;});
-$('pSandLimit').addEventListener('input',()=>{updateLabels();generateAutoMask(false);applyForestToMaterialMask();render2d();});
+$('pSandLimit').addEventListener('input',()=>{updateLabels();generateAutoMask(false);render2d();});
 $('showTreeOverlay').addEventListener('change',render2d);
 $('treePreviewMode')?.addEventListener('change',render2d);
 ['pTreeRadius','pTreeDensity','pTreePatch'].forEach(id=>$(id)?.addEventListener('input',render2d));
 $('treeGenerateAuto')?.addEventListener('click',()=>{regenerateAutomaticForest(true);show2d('trees');});
-$('treeResetAuto')?.addEventListener('click',()=>{snapshot();treeMask.fill(0);applyForestToMaterialMask();show2d('trees');updateUndoButtons();$('status').textContent='manual tree edits cleared';});
+$('treeResetAuto')?.addEventListener('click',()=>{snapshot();treeMask.fill(0);show2d('trees');updateUndoButtons();$('status').textContent='manual tree edits cleared';});
 $('maskPreviewMode').addEventListener('change',render2d);
 $('pMaskOpacity').addEventListener('input',render2d);
 $('showContours').addEventListener('change',render2d);
@@ -1791,17 +1780,16 @@ function terrainSlopeAt(x,y){
 function buildAutomaticForestMask(){
   const out=new Uint8ClampedArray(G*G);
   const sea=+$('pSea').value;
+  const sandLimit=+$('pSandLimit').value;
   const density=(+$('pTreeDensity').value)/100;
   const patch=(+$('pTreePatch').value)/100;
   const threshold=lerp(.78,.34,density);
   const baseFreq=lerp(.0045,.018,1-patch);
   for(let y=0;y<G;y++)for(let x=0;x<G;x++){
     const i=idx(x,y),h=height[i],o=i*3;
-    // Forest eligibility is based on actual dry land, not the sediment/sand material limit.
-    // This keeps low islands and coastal land available for trees.
-    if(h<=Math.max(0.75,sea+1))continue;
+    if(h<=Math.max(sea+1,sandLimit+1))continue;
     const slope=terrainSlopeAt(x,y);
-    if(slope>12.5)continue;
+    if(slope>8.5)continue;
     const fs=(forestSeed|0);
     const large=fbmAt2(x,y,fs+501,5,baseFreq);
     const medium=fbmAt2(x+83,y-47,fs+777,4,baseFreq*2.8);
@@ -1821,7 +1809,7 @@ function applyForestToMaterialMask(){
     let r=0,g=0,b=0;
     if(h<=sandLimit){g=255;}
     else if(slope>8.5){r=255;}
-    else if(treeAllowedAt(i,x,y)){b=255;}
+    else if(treeAutoMask[i]>127){b=255;}
     else{r=0;g=0;b=0;} // detail 3: open grass without trees
     autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
     maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;
@@ -1832,7 +1820,6 @@ function regenerateAutomaticForest(withSnapshot=true){
   // Every click creates a genuinely new forest layout instead of recalculating the same deterministic mask.
   forestSeed=((Date.now() ^ Math.floor(Math.random()*0x7fffffff)) >>> 0) || ((forestSeed+1)>>>0);
   treeAutoMask=buildAutomaticForestMask();
-  applyForestToMaterialMask();
   render2d();updateUndoButtons();
   if($('status'))$('status').textContent='tree mask regenerated';
   return treeAutoMask;
@@ -1855,22 +1842,9 @@ function render2d(){
     const relief=reliefPixel(i);
 
     if(mode==='trees'){
-      const x=i%G,y=(i/G)|0,allowed=treeAllowedAt(i,x,y);
-      const sea=+$('pSea').value,h=height[i];
-      // Dim relief underlay keeps every island/coast visible while white remains the exact tree mask.
-      if(h<=Math.max(0.5,sea+0.5)){
-        d[o]=7;d[o+1]=12;d[o+2]=16;
-      }else if(allowed){
-        d[o]=255;d[o+1]=255;d[o+2]=255;
-      }else{
-        const lum=Math.round(relief[0]*.18+relief[1]*.24+relief[2]*.12);
-        d[o]=d[o+1]=d[o+2]=clamp(lum,18,72);
-      }
-      // Strong land/coast outline so painting boundaries are unambiguous.
-      const land=h>Math.max(0.5,sea+0.5);
-      const right=height[idx(Math.min(G-1,x+1),y)]>Math.max(0.5,sea+0.5);
-      const down=height[idx(x,Math.min(G-1,y+1))]>Math.max(0.5,sea+0.5);
-      if(land!==right||land!==down){d[o]=212;d[o+1]=160;d[o+2]=23;}
+      const x=i%G,y=(i/G)|0,allowed=treeAllowedAt(i,x,y),manual=treeMask[i];
+      const v=allowed?255:0;
+      d[o]=d[o+1]=d[o+2]=v;
     }else if(mode==='mask'){
       const mr=maskRGB[i*3],mg=maskRGB[i*3+1],mb=maskRGB[i*3+2];
 
@@ -2143,7 +2117,7 @@ $('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().th
     if(Number.isFinite(d.settings.treeSettings.patch))$('pTreePatch').value=d.settings.treeSettings.patch;
     if(Number.isFinite(d.settings.treeSettings.seed))forestSeed=(d.settings.treeSettings.seed>>>0)||104729;
   }
-  updateLabels();generateAutoMask(false);applyForestToMaterialMask();dirty3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
+  updateLabels();generateAutoMask(false);dirty3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
 
 
 
@@ -2313,7 +2287,7 @@ function resizeGrid(newG){
   }
   // display buffer
   try{ display=ctx.createImageData(G,G); }catch(e){}
-  generateAutoMask(false); treeAutoMask=buildAutomaticForestMask(); applyForestToMaterialMask(); dirty3d=true; render2d(); updateUndoButtons();
+  generateAutoMask(false); treeAutoMask=buildAutomaticForestMask(); dirty3d=true; render2d(); updateUndoButtons();
   if($('status'))$('status').textContent='resolution '+G+'²';
   updateMapSizeInfo();
 }
@@ -2395,7 +2369,7 @@ if($('presetLoad'))$('presetLoad').onclick=()=>{
 };
 refreshPresetList();
 
-makeTemplate('island');treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();undoStack.length=0;redoStack.length=0;updateUndoButtons();render2d();resetScaleView();
+makeTemplate('island');treeAutoMask=buildAutomaticForestMask();undoStack.length=0;redoStack.length=0;updateUndoButtons();render2d();resetScaleView();
 </script>
 
 <script>
