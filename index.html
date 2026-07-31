@@ -457,7 +457,7 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
     <div class="param"><label>forest patch size <b id="vTreePatch">55%</b></label><input id="pTreePatch" type="range" min="10" max="100" value="55"></div>
     <select id="treePreviewMode" hidden><option value="mask" selected>TREE MASK ONLY</option></select>
     <input id="showTreeOverlay" type="checkbox" checked hidden>
-    <div class="mini">Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. REGENERATE creates natural forest patches. ADD paints white, BLOCK paints black, ERASE restores the automatic result.</div>
+    <div class="mini">Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. In Metasiberia, tree placement also requires the vegetation material channel (B / detail 2). ADD TREES now sets both masks together.</div>
   </div>
 
   <div class="sect context-3d" id="previewSettings">
@@ -1582,21 +1582,26 @@ function stampMask(cx,cy){
       if(maskTool==='treeAdd'){
         if(h<=Math.max(0.75,sea+0.5))continue;
         treeMask[i]=128; // force white / trees allowed
+
+        // Metasiberia places trees only where the tree mask AND the vegetation
+        // material channel agree. Manual ADD TREES therefore has to force B,
+        // even when this pixel had previously been painted as rock or sediment.
+        maskRGB[o]=0;maskRGB[o+1]=0;maskRGB[o+2]=255;
+        autoRGB[o]=0;autoRGB[o+1]=0;autoRGB[o+2]=255;
+        overrideA[i]=255;
       }else if(maskTool==='treeBlock'){
         treeMask[i]=255; // force black / no trees
       }else{
         treeMask[i]=0;   // restore automatic forest result
-      }
-      // Keep the material vegetation channel in sync with the final tree permission mask.
-      // Explicit manual material painting still has priority.
-      if(!overrideA[i]){
-        const slope=terrainSlopeAt(x,y);
-        let rr=0,gg=0,bb=0;
-        if(h<=+$('pSandLimit').value) gg=255;
-        else if(slope>8.5) rr=255;
-        else if(treeAllowedAt(i,x,y)) bb=255;
-        autoRGB[o]=rr;autoRGB[o+1]=gg;autoRGB[o+2]=bb;
-        maskRGB[o]=rr;maskRGB[o+1]=gg;maskRGB[o+2]=bb;
+        if(!overrideA[i]){
+          const slope=terrainSlopeAt(x,y);
+          let rr=0,gg=0,bb=0;
+          if(h<=+$('pSandLimit').value) gg=255;
+          else if(slope>8.5) rr=255;
+          else if(treeAllowedAt(i,x,y)) bb=255;
+          autoRGB[o]=rr;autoRGB[o+1]=gg;autoRGB[o+2]=bb;
+          maskRGB[o]=rr;maskRGB[o+1]=gg;maskRGB[o+2]=bb;
+        }
       }
     }
     return;
