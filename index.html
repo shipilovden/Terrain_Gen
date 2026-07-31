@@ -1,0 +1,2690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TERRA GEN · Terrain Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0d10;--panel:#12151a;--panel2:#171b21;--line:#272d36;
+  --txt:#eef2f6;--dim:#aeb7c2;--gold:#d4a017;--gold2:#8f6c0d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font:12px 'Share Tech Mono',monospace;display:flex;flex-direction:column}
+header{height:48px;display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid var(--line)}
+h1{font:26px 'Bebas Neue',sans-serif;letter-spacing:3px;color:var(--gold)}
+header .sub{color:var(--dim);letter-spacing:1px}
+header .tabs{margin-left:auto;display:flex;gap:6px}
+header .editGroup,header .viewGroup{display:flex;gap:6px;align-items:center}
+header .editGroup{
+  padding-right:12px;margin-right:10px;border-right:1px solid var(--line);
+}
+header .editGroup button{
+  min-width:92px;padding:9px 12px;font-weight:700;letter-spacing:1.2px;
+  border-color:var(--gold2);background:#1b1a14;color:#e6c45d;
+  box-shadow:inset 0 0 0 1px rgba(212,160,23,.08);
+}
+header .editGroup button:hover:not(:disabled){
+  background:#262111;color:#ffd867;border-color:var(--gold);
+}
+header .editGroup button:disabled{opacity:.28}
+header .viewGroup button{
+  min-width:86px;padding:8px 11px;
+}
+button,select,input{font:inherit}
+button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:7px 8px;cursor:pointer;letter-spacing:.7px}
+button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+button.on,.primary{background:var(--gold);border-color:var(--gold);color:#0b0d10}
+button:disabled{opacity:.35;cursor:not-allowed}
+main{flex:1;min-height:0;display:flex}
+aside{width:292px;min-width:292px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:11px}
+.sect{margin-bottom:14px}
+.sect h2{font-size:10px;font-weight:400;letter-spacing:2px;color:var(--gold);border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:7px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.wide{grid-column:1/-1;width:100%}
+.param{margin:7px 0}
+.param label{display:flex;justify-content:space-between;color:var(--dim);margin-bottom:3px}
+.param b{color:var(--txt);font-weight:400}
+input[type=range]{width:100%;appearance:none;height:3px;background:var(--line);outline:none}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:11px;height:11px;background:var(--gold)}
+.row{display:flex;align-items:center;gap:7px;margin:6px 0;color:var(--dim)}
+.row input[type=checkbox]{accent-color:var(--gold)}
+select,input[type=number],input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px}
+.mini{font-size:10px;color:var(--dim);line-height:1.45;margin-top:5px}
+.badge{display:inline-block;padding:2px 5px;border:1px solid var(--line);color:var(--dim)}
+.workspace{flex:1;min-width:0;position:relative;background:#080a0d}
+.panel{position:absolute;inset:0;display:none}
+.panel.on{display:flex}
+.canvasWrap{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;padding:14px;position:relative}
+#paintCanvas{max-width:100%;max-height:100%;aspect-ratio:1;box-shadow:0 0 0 1px var(--line);cursor:crosshair;image-rendering:auto;touch-action:none}
+#paintCanvas.panning{cursor:grabbing}
+.zoomReadout{display:inline-flex;align-items:center;justify-content:center;height:32px;min-width:58px;padding:0 7px;border:1px solid var(--line);color:var(--dim);font-size:10px}
+#preview3d{width:100%;height:100%;display:block}
+.hud{position:absolute;top:10px;left:12px;color:var(--dim);pointer-events:none;text-shadow:0 1px 2px #000;line-height:1.6}
+.hud b{color:var(--gold);font-weight:400}
+.legend{position:absolute;right:14px;bottom:14px;background:rgba(11,13,16,.84);border:1px solid var(--line);padding:8px;line-height:1.5;color:var(--dim)}
+.sw{display:inline-block;width:11px;height:11px;margin-right:5px;vertical-align:-1px}
+footer a{color:var(--txt);text-decoration:none} footer a:hover{color:var(--gold)}
+footer{height:27px;border-top:1px solid var(--line);padding:6px 15px;color:var(--dim);display:flex;justify-content:space-between}
+#status{color:var(--txt)}
+@media(max-width:1050px){.cards{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){
+  main{flex-direction:column}
+  aside{width:100%;min-width:0;max-height:46%;border-right:0;border-bottom:1px solid var(--line)}
+}
+
+aside{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+aside::-webkit-scrollbar{width:0;height:0}
+button:focus-visible,input:focus-visible,select:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+}
+button:active:not(:disabled){transform:translateY(1px)}
+.sect h2{position:sticky;top:-1px;background:var(--panel);z-index:2}
+
+
+header.commandbar{
+  min-height:48px;height:48px;padding:5px 9px;display:flex;align-items:center;gap:10px;
+  background:#0d1014;border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap;flex:none
+}
+.cmd-cluster{display:flex;align-items:center;gap:4px;min-width:0}
+.cmd-cluster+.cmd-cluster{padding-left:10px;border-left:1px solid #2a3039}
+.cmd-cluster.document{margin-left:auto}
+.cmd-label{color:var(--gold);font-size:9px;letter-spacing:1.2px;margin-right:3px}
+header.commandbar button{height:32px;min-width:50px;padding:0 9px;font-size:11px}
+.export-label{margin-left:7px}
+.field{margin:7px 0}.field label{display:block;color:var(--dim);margin-bottom:4px}
+.setup-block{border:1px solid var(--line);background:#0d1014;margin-bottom:14px}
+.setup-block summary{cursor:pointer;list-style:none;padding:9px;color:var(--gold);font-size:10px;letter-spacing:2px}
+.setup-block summary::-webkit-details-marker{display:none}
+.setup-block summary::after{content:'+';float:right}.setup-block[open] summary::after{content:'–'}
+.setup-body{padding:0 9px 9px}
+.context-mask,.context-trees,.context-3d{display:none}
+@media(max-width:1180px){.cmd-label{display:none}.cmd-cluster+.cmd-cluster{padding-left:6px}header.commandbar{gap:6px}header.commandbar button{padding:0 7px}}
+@media(max-width:860px){header.commandbar{overflow-x:auto}.cmd-cluster.document{margin-left:0}}
+
+.brand-row{display:flex;align-items:center;gap:12px;margin-right:8px;flex:none}
+.brand-row h1{font:22px 'Bebas Neue',sans-serif;letter-spacing:2px;color:var(--gold);font-weight:400;white-space:nowrap}
+.lang-toggle{display:flex;border:1px solid var(--line);background:var(--panel2);overflow:hidden;margin-left:4px}
+.lang-toggle button{min-width:0;padding:6px 9px;background:transparent;color:var(--dim);border:0;font:10px 'Share Tech Mono',monospace;letter-spacing:1px;cursor:pointer;height:28px}
+.lang-toggle button:hover{color:var(--gold)}
+.lang-toggle button.on{background:var(--gold);color:#0b0d10}
+header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px solid #2a3039}
+
+
+.island-menu{margin-bottom:6px;border:1px solid var(--line);background:#0d1014}
+.island-menu>summary{
+  cursor:pointer;list-style:none;padding:8px 9px;letter-spacing:1px;font-size:11px;
+  color:#0b0d10;background:var(--gold);border:1px solid var(--gold);font-weight:700;
+}
+.island-menu>summary::-webkit-details-marker{display:none}
+.island-menu>summary::after{content:'▾';float:right;color:#0b0d10}
+.island-menu[open]>summary::after{content:'▴'}
+.island-menu .island-list{display:flex;flex-direction:column;gap:2px;padding:6px;max-height:220px;overflow:auto}
+.island-menu .island-list button{
+  text-align:left;padding:7px 8px;font-size:10px;letter-spacing:.6px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+}
+.island-menu .island-list button:hover{border-color:var(--gold);color:var(--gold)}
+.island-menu .island-list button.on{background:var(--gold);border-color:var(--gold);color:#0b0d10}
+.island-menu .island-group{
+  color:var(--gold);font-size:9px;letter-spacing:1.4px;padding:8px 4px 3px;opacity:.9;
+}
+
+
+.tool-menu{margin-bottom:5px;border:1px solid var(--line);background:#0d1014}
+.tool-menu>summary{
+  cursor:pointer;list-style:none;padding:7px 8px;letter-spacing:1px;font-size:10px;
+  color:var(--txt);background:var(--panel2);border-bottom:1px solid var(--line);
+}
+.tool-menu>summary::-webkit-details-marker{display:none}
+.tool-menu>summary::after{content:'▾';float:right;color:var(--gold)}
+.tool-menu[open]>summary::after{content:'▴'}
+.tool-menu .tool-list{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px}
+.tool-menu .tool-list button{font-size:10px;padding:7px 5px;letter-spacing:.5px}
+.sculpt-current{
+  border:1px solid var(--gold2);background:#1b1a14;color:#e6c45d;
+  padding:7px 8px;margin-bottom:8px;font-size:10px;letter-spacing:1px;
+}
+
+
+[data-tool][title], [data-mask][title]{position:relative}
+.tool-tip-box{
+  font-size:10px;line-height:1.35;color:var(--muted);margin-top:4px;min-height:2.6em;
+  border-left:2px solid var(--gold2);padding-left:8px;
+}
+
+</style>
+</head>
+<body>
+<header class="commandbar" role="toolbar" aria-label="Terrain commands">
+  <div class="brand-row">
+    <h1>TERRA GEN</h1>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" class="on" id="lang_en">EN</button>
+      <button type="button" data-lang="ru" id="lang_ru">RU</button>
+    </div>
+  </div>
+  <div class="cmd-cluster">
+    <span class="cmd-label">MODE</span>
+    <button id="tabHeight" class="on">HEIGHT</button>
+    <button id="tabMask">MATERIALS</button>
+    <button id="tabTrees">TREES</button>
+    <button id="tab3d">3D PREVIEW</button>
+  </div>
+  <div class="cmd-cluster">
+    <span class="cmd-label">HISTORY</span>
+    <button id="undoTop" title="Undo · Ctrl/Cmd + Z">UNDO</button>
+    <button id="redoTop" title="Redo · Ctrl/Cmd + Y">REDO</button>
+    <button id="zoomOut2d" title="Zoom out of the 2D map">−</button>
+    <span id="zoomReadout" class="zoomReadout">100%</span>
+    <button id="zoomIn2d" title="Zoom into the 2D map">+</button>
+    <button id="resetView">RESET VIEW</button>
+  </div>
+  <div class="cmd-cluster document">
+    <span class="cmd-label">PROJECT</span>
+    <button id="saveProject">SAVE</button>
+    <button id="loadProject">LOAD</button>
+    <span class="cmd-label export-label">EXPORT</span>
+    <button id="exportEXR" class="on">EXR</button>
+    <button id="exportMask">MATERIALS</button>
+    <button id="exportTrees">TREES</button>
+    <button id="exportBundle" class="primary">ZIP</button>
+  </div>
+</header>
+<main>
+<aside>
+  <details class="setup-block context-height" id="baseTerrainSection" open>
+    <summary>BASE TERRAIN</summary>
+    <div class="setup-body">
+      <details class="island-menu" id="islandMenu">
+        <summary id="islandMenuLabel">ISLAND · CLASSIC</summary>
+        <div class="island-list" id="islandList">
+          <div class="island-group">REAL</div>
+          <button type="button" data-island="classic" class="on">CLASSIC VOLCANIC</button>
+          <button type="button" data-island="high">HIGH MOUNTAINOUS</button>
+          <button type="button" data-island="low">LOW CORAL CAY</button>
+          <button type="button" data-island="barrier">BARRIER / LONG</button>
+          <button type="button" data-island="twin">TWIN LINKED</button>
+          <button type="button" data-island="caldera">CALDERA</button>
+          <button type="button" data-island="mesa">TABLE / MESA</button>
+          <button type="button" data-island="rias">RIAS / DROWNED</button>
+          <button type="button" data-island="spit">SPIT / SANDBAR</button>
+          <button type="button" data-island="arch">ARCH ROCKS</button>
+          <div class="island-group">UNREAL</div>
+          <button type="button" data-island="ring">RING DONUT</button>
+          <button type="button" data-island="crescent">CRESCENT</button>
+          <button type="button" data-island="star">STAR</button>
+          <button type="button" data-island="spiral">SPIRAL</button>
+          <button type="button" data-island="serpent">SERPENT</button>
+          <button type="button" data-island="shards">SHATTERED</button>
+          <button type="button" data-island="crystal">CRYSTAL SPIRES</button>
+          <button type="button" data-island="plateau">CLIFF PLATEAU</button>
+          <button type="button" data-island="mushroom">MUSHROOM CAP</button>
+          <button type="button" data-island="heart">HEART</button>
+          <button type="button" data-island="needle">SKY NEEDLE</button>
+          <button type="button" data-island="lagoonchain">LAGOON CHAIN</button>
+        </div>
+      </details>
+      <div class="grid2" id="templateGrid">
+        <button data-template="archipelago">ARCHIPELAGO</button>
+        <button data-template="atoll">ATOLL</button>
+        <button data-template="peninsula">PENINSULA</button>
+        <button data-template="fjord">FJORD</button>
+        <button data-template="canyon">CANYON</button>
+        <button data-template="crater">CRATER</button>
+        <button data-template="shelf">CONTINENT SHELF</button>
+        <button data-template="square">SQUARE</button>
+        <button data-template="blank">BLANK OCEAN</button>
+      </div>
+      <div class="param"><label>sea floor <b id="vSea">-85 m</b></label><input id="pSea" type="range" min="-160" max="-10" value="-85"></div>
+      <div class="param"><label>land base <b id="vLand">8 m</b></label><input id="pLand" type="range" min="0" max="50" value="8"></div>
+      <div class="param"><label>maximum peak <b id="vPeak">282 m</b></label><input id="pPeak" type="range" min="60" max="1200" value="282"></div>
+      <div class="param"><label>seed <b id="vSeed">42</b></label><input id="pSeed" type="range" min="1" max="9999" value="42"></div>
+      <div class="grid2" style="margin:6px 0">
+        <button type="button" id="btnRandomize" class="wide">RANDOMIZE SEED</button>
+        <button type="button" id="btnRegenBase" class="wide">REGENERATE</button>
+      </div>
+      <div class="sect" style="margin:10px 0 6px">
+        <h2 style="margin:0 0 6px">POST PASSES</h2>
+        <div class="grid2">
+          <button type="button" id="btnErode">EROSION</button>
+          <button type="button" id="btnTerraces">TERRACES</button>
+          <button type="button" id="btnDunes">DUNES</button>
+          <button type="button" id="btnNoisePass">NOISE DETAIL</button>
+        </div>
+        <div class="param"><label>pass strength <b id="vPass">45%</b></label><input id="pPass" type="range" min="5" max="100" value="45"></div>
+      </div>
+      <div class="sect" style="margin:10px 0 6px">
+        <h2 style="margin:0 0 6px">TRANSFORM</h2>
+        <div class="grid2">
+          <button type="button" id="btnMirrorH">MIRROR H</button>
+          <button type="button" id="btnMirrorV">MIRROR V</button>
+        </div>
+      </div>
+      <div class="sect" style="margin:10px 0 6px">
+        <h2 style="margin:0 0 6px">IMPORT</h2>
+        <button type="button" id="btnImportHeight" class="wide">IMPORT HEIGHTMAP PNG</button>
+        <input id="heightmapFile" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+        <div class="mini">Grayscale PNG/JPEG as height. Black → sea floor, white → peak. Replaces current field.</div>
+      </div>
+      <div class="field"><label>map size (meters) — сторона квадрата</label>
+        <select id="pWorldSize">
+          <option value="2048">2048 × 2048 m</option>
+          <option value="4096">4096 × 4096 m</option>
+          <option value="8192" selected>8192 × 8192 m</option>
+          <option value="16384">16384 × 16384 m</option>
+          <option value="32768">32768 × 32768 m</option>
+        </select>
+      </div>
+      <div class="field"><label>sculpt grid (cells)</label>
+        <select id="pResolution">
+          <option value="256">256 × 256 — fast</option>
+          <option value="384">384 × 384</option>
+          <option value="512" selected>512 × 512 — balanced</option>
+          <option value="640">640 × 640</option>
+          <option value="768">768 × 768 — detailed</option>
+          <option value="1024">1024 × 1024 — max</option>
+        </select>
+      </div>
+      <div class="field"><label>export file resolution (px)</label>
+        <select id="pExportSize">
+          <option value="512">512 × 512</option>
+          <option value="1024" selected>1024 × 1024</option>
+          <option value="2048">2048 × 2048</option>
+        </select>
+      </div>
+      <div class="mini" id="mapSizeInfo">Now: world 8192 m · grid 512² · export 1024 px. 1024 is EXR pixel size, not world meters.</div>
+    </div>
+  </details>
+
+  <div class="sect context-height" id="heightSettings">
+    <h2>SCULPT TOOL</h2>
+    <div class="sculpt-current" id="sculptCurrent">ACTIVE · MOUNTAIN RANGE</div>
+    <div id="heightTools">
+      <details class="tool-menu" open>
+        <summary>BASIC</summary>
+        <div class="tool-list">
+          <button data-tool="mountain" class="on">MOUNTAIN RANGE</button>
+          <button data-tool="raise">RAISE</button>
+          <button data-tool="lower">LOWER</button>
+          <button data-tool="softRaise">SOFT RAISE</button>
+          <button data-tool="hardRaise">HARD RAISE</button>
+          <button data-tool="softLower">SOFT LOWER</button>
+          <button data-tool="hardLower">HARD LOWER</button>
+          <button data-tool="pinch">PINCH</button>
+          <button data-tool="inflate">INFLATE</button>
+          <button data-tool="deflate">DEFLATE</button>
+          <button data-tool="clay">CLAY BUILD</button>
+          <button data-tool="blob">BLOB</button>
+          <button data-tool="amplify">AMPLIFY</button>
+          <button data-tool="dampen">DAMPEN</button>
+          <button data-tool="smooth">SMOOTH</button>
+          <button data-tool="polish">POLISH</button>
+          <button data-tool="sharpen">SHARPEN</button>
+        </div>
+      </details>
+      <details class="tool-menu">
+        <summary>SHAPE</summary>
+        <div class="tool-list">
+          <button data-tool="flatten">FLATTEN</button>
+          <button data-tool="plateau">PLATEAU</button>
+          <button data-tool="ramp">RAMP</button>
+          <button data-tool="cliff">CLIFF</button>
+          <button data-tool="wall">WALL RIDGE</button>
+          <button data-tool="basin">BASIN</button>
+          <button data-tool="gorge">GORGE</button>
+          <button data-tool="berm">BERM</button>
+          <button data-tool="saddle">SADDLE</button>
+          <button data-tool="notch">NOTCH</button>
+          <button data-tool="lake">LAKE</button>
+          <button data-tool="fill">FILL LEVEL</button>
+          <button data-tool="lowland">LOWLAND</button>
+          <button data-tool="coast">COAST / BEACH</button>
+          <button data-tool="shelf">SHELF</button>
+          <button data-tool="cove">COVE</button>
+          <button data-tool="spit">SPIT</button>
+          <button data-tool="river">RIVER / VALLEY</button>
+          <button data-tool="channel">CHANNEL</button>
+          <button data-tool="delta">DELTA</button>
+          <button data-tool="sea">CARVE SEA</button>
+        </div>
+      </details>
+      <details class="tool-menu">
+        <summary>DETAIL</summary>
+        <div class="tool-list">
+          <button data-tool="noise">NOISE DETAIL</button>
+          <button data-tool="erode">ERODE</button>
+          <button data-tool="deposit">DEPOSIT</button>
+          <button data-tool="terrace">TERRACE</button>
+          <button data-tool="striate">STRIATE</button>
+          <button data-tool="ripple">RIPPLE</button>
+          <button data-tool="scratch">SCRATCH</button>
+          <button data-tool="crack">CRACK</button>
+          <button data-tool="pockmark">POCKMARK</button>
+          <button data-tool="pebble">PEBBLE</button>
+          <button data-tool="weather">WEATHER</button>
+          <button data-tool="grain">GRAIN</button>
+        </div>
+      </details>
+      <details class="tool-menu">
+        <summary>STAMPS</summary>
+        <div class="tool-list">
+          <button data-tool="stampVolcano">VOLCANO</button>
+          <button data-tool="stampCrater">CRATER</button>
+          <button data-tool="stampHill">HILL</button>
+          <button data-tool="stampCone">CONE</button>
+          <button data-tool="stampMesa">MESA</button>
+          <button data-tool="stampCaldera">CALDERA</button>
+          <button data-tool="stampRidge">RIDGE BLOB</button>
+          <button data-tool="stampSpire">SPIRE</button>
+          <button data-tool="stampPyramid">PYRAMID</button>
+          <button data-tool="stampBowl">BOWL</button>
+          <button data-tool="stampArch">ARCH</button>
+          <button data-tool="stampAtoll">ATOLL RING</button>
+          <button data-tool="stampTwin">TWIN HILLS</button>
+          <button data-tool="stampDunes">DUNES</button>
+          <button data-tool="stampTor">TOR ROCKS</button>
+          <button data-tool="stampRamp">RAMP STAMP</button>
+        </div>
+      </details>
+    </div>
+    <div class="sect" style="margin-top:8px">
+      <h2 style="margin:0 0 6px">SYMMETRY</h2>
+      <div class="grid2">
+        <button type="button" id="symMirrorX">MIRROR X</button>
+        <button type="button" id="symMirrorY">MIRROR Y</button>
+        <button type="button" id="symRadial" class="wide">RADIAL 4</button>
+      </div>
+      <div class="mini">Active symmetry mirrors each stroke across the map center.</div>
+    </div>
+    <div class="sect" style="margin-top:8px">
+      <h2 style="margin:0 0 6px">BRUSH PRESETS</h2>
+      <div class="grid2">
+        <button type="button" id="presetSave">SAVE PRESET</button>
+        <button type="button" id="presetLoad">LOAD PRESET</button>
+      </div>
+      <select id="presetList" class="wide" style="width:100%;margin-top:5px;background:#0e1115;color:var(--txt);border:1px solid var(--line);padding:6px"></select>
+    </div>
+    <div class="param"><label>brush radius <b id="vRadius">34 px</b></label><input id="pRadius" type="range" min="0.5" max="110" step="0.5" value="34"></div>
+    <div class="param" id="strengthWrap"><label>strength <b id="vStrength">20 m</b></label><input id="pStrength" type="range" min="1" max="80" value="20"></div>
+    <div class="param" id="sharpWrap"><label>ridge sharpness <b id="vSharp">1.55</b></label><input id="pSharp" type="range" min="60" max="350" value="155"></div>
+    <div class="param" id="lowWrap"><label>target height <b id="vLow">14 m</b></label><input id="pLow" type="range" min="-20" max="400" value="14"></div>
+    <div class="mini" id="hotkeyHint">Hotkeys: 1-9 tools · [ ] radius · - = strength · wheel zoom · Alt+wheel radius</div>
+    <div class="row"><input id="autoMask" type="checkbox" checked><label for="autoMask">refresh automatic mask after sculpting</label></div>
+    <div class="mini" id="heightToolHelp">Drag continuously to draw connected mountain ranges.</div>
+  </div>
+
+  <div class="sect context-mask" id="maskSettings">
+    <h2>MATERIAL MASK</h2>
+    <div class="grid3" id="maskTools">
+      <button data-mask="r" class="on">R · КАМЕНЬ</button>
+      <button data-mask="g">G · ОСАДОК</button>
+      <button data-mask="b">B · РАСТИТЕЛЬНОСТЬ</button>
+      <button data-mask="smooth">СГЛАДИТЬ</button>
+      <button data-mask="erase">ВЕРНУТЬ АВТО</button>
+      <button id="regenMask">ПЕРЕСОБРАТЬ АВТО</button>
+      <button id="slopeAuto" class="wide">АВТО ПО ВЫСОТЕ И УКЛОНУ</button>
+    </div>
+    <div class="row"><input id="maskLandOnly" type="checkbox"><label for="maskLandOnly">paint land only</label></div>
+    <div class="row"><input id="maskSeaOnly" type="checkbox"><label for="maskSeaOnly">paint sea only</label></div>
+    <div class="mini">Metasiberia: R = detail 0 (камень), G = detail 1 (осадок/песок), B = detail 2 (растительность). Каждый пиксель маски нормализуется: сумма каналов равна 255. Деревья управляются отдельной чёрно-белой PNG-маской.</div>
+    <div class="param"><label>brush radius <b id="vMaskRadius">34 px</b></label><input id="pMaskRadius" type="range" min="0.5" max="110" step="0.5" value="34"></div>
+    <div class="field"><label>preview</label><select id="maskPreviewMode"><option value="overlay" selected>RELIEF + MASK</option><option value="mask">MASK ONLY</option><option value="terrain">TERRAIN ONLY</option></select></div>
+    <div class="param"><label>overlay opacity <b id="vMaskOpacity">58%</b></label><input id="pMaskOpacity" type="range" min="15" max="100" value="58"></div>
+    <div class="row"><input id="showContours" type="checkbox" checked><label for="showContours">show 20 m terrain contours</label></div>
+    <div class="param"><label>sand height limit <b id="vSandLimit">6 m</b></label><input id="pSandLimit" type="range" min="1" max="30" value="6"></div>
+
+  </div>
+
+  <div class="sect context-trees" id="treeSettings">
+    <h2>TREES</h2>
+    <button type="button" id="treeGenerateAuto" class="wide" style="margin-bottom:6px">REGENERATE FOREST</button>
+    <div class="grid2" id="treeMaskTools">
+      <button data-mask="treeAdd">ADD TREES</button>
+      <button data-mask="treeBlock">BLOCK TREES</button>
+      <button data-mask="treeErase">ERASE MANUAL</button>
+      <button type="button" id="treeResetAuto">CLEAR MANUAL EDITS</button>
+    </div>
+    <div class="param"><label>brush radius <b id="vTreeRadius">34 px</b></label><input id="pTreeRadius" type="range" min="1" max="110" step="1" value="34"></div>
+    <div class="param"><label>forest coverage <b id="vTreeDensity">65%</b></label><input id="pTreeDensity" type="range" min="5" max="100" value="65"></div>
+    <div class="param"><label>forest patch size <b id="vTreePatch">55%</b></label><input id="pTreePatch" type="range" min="10" max="100" value="55"></div>
+    <select id="treePreviewMode" hidden><option value="mask" selected>TREE MASK ONLY</option></select>
+    <input id="showTreeOverlay" type="checkbox" checked hidden>
+    <div class="mini">Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. REGENERATE creates natural forest patches. ADD paints white, BLOCK paints black, ERASE restores the automatic result.</div>
+  </div>
+
+  <div class="sect context-3d" id="previewSettings">
+    <h2>3D PREVIEW</h2>
+    <div class="param"><label>preview / Substrata height scale <b id="vHeightScale">8.0×</b></label><input id="pHeightScale" type="range" min="25" max="1600" value="800"></div>
+    <div class="mini">This affects only the preview and recommended Substrata setting; exported height values remain in meters.</div>
+  </div>
+
+  <div class="sect" id="exportSettings">
+    <h2>EXPORT COMPATIBILITY</h2>
+    <div class="row"><input id="flipY" type="checkbox" checked><label for="flipY">Substrata orientation · flip vertically</label></div>
+    <button id="exportHeightPNG" class="wide">HEIGHT PREVIEW PNG</button>
+    <input id="projectFile" type="file" accept=".json,.tforge" hidden>
+    <div class="mini">EXR uses one float channel named Y. Material mask: R rock/detail 0, G sediment/detail 1, B vegetation/detail 2. Tree mask is an opaque grayscale PNG: white = trees, black = no trees.</div>
+  </div>
+</aside>
+
+<section class="workspace">
+  <div id="panel2d" class="panel on">
+    <div class="canvasWrap">
+      <canvas id="paintCanvas" width="1024" height="1024"></canvas>
+      <div class="hud" id="hud"><b>HEIGHT</b> · drag to sculpt · Ctrl+wheel zoom · right/middle-drag pan · wheel changes brush radius</div>
+      <div class="legend" id="heightLegend">deep sea → coast → lowland → mountain</div>
+      <div class="legend" id="maskLegend" style="display:none">
+        <div><span class="sw" style="background:#f00"></span>R rock · detail 0</div>
+        <div><span class="sw" style="background:#0f0"></span>G sediment · detail 1</div>
+        <div><span class="sw" style="background:#00f"></span>B vegetation · detail 2</div>
+      </div>
+      <div class="legend" id="treeLegend" style="display:none">
+        <div><span class="sw" style="background:#fff"></span>trees allowed</div>
+        <div><span class="sw" style="background:#000;border:1px solid #666"></span>open grass / detail 3</div>
+      </div>
+    </div>
+  </div>
+  <div id="panel3d" class="panel">
+    <canvas id="preview3d"></canvas>
+    <div class="hud" id="hud3d"><b>3D PREVIEW</b> · <span id="hud3dWorld">8192</span> m world · height scale → Substrata · drag orbit · wheel zoom</div>
+  </div>
+</section>
+</main>
+<footer>
+  <span id="status">ready · choose a base terrain</span>
+  <span id="footerSize">512² sculpt → 1024² export · 8192 m world</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+
+/* Safe storage: localStorage throws in sandboxed iframes without allow-same-origin */
+const _memStore=Object.create(null);
+let _ls=null;
+try{
+  const k='__sf_ls_test__';
+  window.localStorage.setItem(k,'1');
+  window.localStorage.removeItem(k);
+  _ls=window.localStorage;
+}catch(e){ _ls=null; }
+const store={
+  getItem(k){ if(_ls){ try{ return _ls.getItem(k); }catch(e){} } return (k in _memStore)?_memStore[k]:null; },
+  setItem(k,v){ v=String(v); if(_ls){ try{ _ls.setItem(k,v); return; }catch(e){} } _memStore[k]=v; },
+  removeItem(k){ if(_ls){ try{ _ls.removeItem(k); }catch(e){} } delete _memStore[k]; }
+};
+window.__sfStore=store;
+
+const $=id=>document.getElementById(id);
+let G=512, OUT=1024, PRE=192; let worldSize=8192;
+let height=new Float32Array(G*G);
+let autoRGB=new Uint8ClampedArray(G*G*3);
+let maskRGB=new Uint8ClampedArray(G*G*3);
+let overrideA=new Uint8ClampedArray(G*G);
+let treeMask=new Uint8ClampedArray(G*G);
+let treeAutoMask=new Uint8ClampedArray(G*G);
+let tool='mountain',maskTool='r',mode='height',drawing=false,lastPt=null;
+let undoStack=[],redoStack=[],dirty3d=true,baseTemplate='island',islandKind='classic',terrainSeed=42,forestSeed=104729;
+let symMirrorX=false,symMirrorY=false,symRadial=0;
+
+const cv=$('paintCanvas'),ctx=cv.getContext('2d'); let display=ctx.createImageData(G,G);
+const brushCursor={x:-1,y:-1};
+let mapZoom=1,mapPanX=0,mapPanY=0,mapPanning=false,mapPanStart=null;
+const MAP_ZOOM_MIN=1,MAP_ZOOM_MAX=16;
+function clampMapPan(){
+  const visible=G/mapZoom,maxPan=Math.max(0,(G-visible)/2);
+  mapPanX=clamp(mapPanX,-maxPan,maxPan);mapPanY=clamp(mapPanY,-maxPan,maxPan);
+}
+function updateZoomReadout(){const z=$('zoomReadout');if(z)z.textContent=Math.round(mapZoom*100)+'%';}
+function setMapZoom(next,anchor=null){
+  const old=mapZoom;next=clamp(next,MAP_ZOOM_MIN,MAP_ZOOM_MAX);if(Math.abs(next-old)<1e-6)return;
+  if(anchor){
+    const beforeX=(anchor.x-cv.width/2)/(cv.width/old)+G/2+mapPanX;
+    const beforeY=(anchor.y-cv.height/2)/(cv.height/old)+G/2+mapPanY;
+    mapZoom=next;
+    const afterX=(anchor.x-cv.width/2)/(cv.width/mapZoom)+G/2;
+    const afterY=(anchor.y-cv.height/2)/(cv.height/mapZoom)+G/2;
+    mapPanX=beforeX-afterX;mapPanY=beforeY-afterY;
+  }else mapZoom=next;
+  clampMapPan();updateZoomReadout();render2d();
+}
+function resetMapView(){mapZoom=1;mapPanX=0;mapPanY=0;updateZoomReadout();render2d();}
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function smoothstep(a,b,x){x=clamp((x-a)/(b-a||1),0,1);return x*x*(3-2*x)}
+function lerp(a,b,t){return a+(b-a)*t}
+function idx(x,y){return y*G+x}
+function hashNoise(x,y,seed=17){
+  let n=(x*374761393+y*668265263+seed*69069)|0;
+  n=(n^(n>>>13))*1274126177;n^=n>>>16;
+  return ((n>>>0)/4294967295);
+}
+function fade(t){return t*t*t*(t*(t*6-15)+10);}
+function valueNoise2D(x,y,seed){
+  const x0=Math.floor(x),y0=Math.floor(y);
+  const fx=fade(x-x0),fy=fade(y-y0);
+  const s=seed|0;
+  const n00=hashNoise(x0,y0,s),n10=hashNoise(x0+1,y0,s);
+  const n01=hashNoise(x0,y0+1,s),n11=hashNoise(x0+1,y0+1,s);
+  return lerp(lerp(n00,n10,fx),lerp(n01,n11,fx),fy);
+}
+/* gradient-style noise for smoother slopes */
+function gradNoise2D(x,y,seed){
+  const x0=Math.floor(x),y0=Math.floor(y);
+  const fx=x-x0,fy=y-y0;
+  const ux=fade(fx),uy=fade(fy);
+  const s=seed|0;
+  function grad(ix,iy){
+    const h=hashNoise(ix,iy,s)*6.28318530718;
+    return Math.cos(h)*fx2 + Math.sin(h)*fy2;
+  }
+  // local offsets per corner
+  let fx2=fx,fy2=fy; const g00=(()=>{fx2=fx;fy2=fy;const h=hashNoise(x0,y0,s)*6.28318530718;return Math.cos(h)*fx+Math.sin(h)*fy;})();
+  fx2=fx-1;fy2=fy; const g10=(()=>{const h=hashNoise(x0+1,y0,s)*6.28318530718;return Math.cos(h)*(fx-1)+Math.sin(h)*fy;})();
+  fx2=fx;fy2=fy-1; const g01=(()=>{const h=hashNoise(x0,y0+1,s)*6.28318530718;return Math.cos(h)*fx+Math.sin(h)*(fy-1);})();
+  fx2=fx-1;fy2=fy-1; const g11=(()=>{const h=hashNoise(x0+1,y0+1,s)*6.28318530718;return Math.cos(h)*(fx-1)+Math.sin(h)*(fy-1);})();
+  return lerp(lerp(g00,g10,ux),lerp(g01,g11,ux),uy)*.5+.5;
+}
+function fbmAt(x,y,seed){
+  const s=(seed==null?terrainSeed:seed)|0;
+  let v=0,a=.5,f=.009,sum=0;
+  for(let o=0;o<7;o++){
+    v+=a*valueNoise2D(x*f,y*f,s+o*131);
+    sum+=a;a*=.5;f*=2.03;
+  }
+  return v/sum;
+}
+function fbmAt2(x,y,seed,oct=5,baseF=.02){
+  const s=(seed==null?terrainSeed:seed)|0;
+  let v=0,a=.5,f=baseF,sum=0;
+  for(let o=0;o<oct;o++){
+    v+=a*valueNoise2D(x*f,y*f,s+o*131);
+    sum+=a;a*=.5;f*=2.08;
+  }
+  return v/sum;
+}
+function fbmGrad(x,y,seed,oct=5,baseF=.012){
+  const s=(seed==null?terrainSeed:seed)|0;
+  let v=0,a=.5,f=baseF,sum=0;
+  for(let o=0;o<oct;o++){
+    v+=a*gradNoise2D(x*f,y*f,s+o*77);
+    sum+=a;a*=.48;f*=2.1;
+  }
+  return v/sum;
+}
+function ridgedFbm(x,y,seed,oct=6,baseF=.012){
+  const s=(seed==null?terrainSeed:seed)|0;
+  let v=0,a=.5,f=baseF,sum=0,weight=1;
+  for(let o=0;o<oct;o++){
+    let n=1-Math.abs(valueNoise2D(x*f,y*f,s+o*97)*2-1);
+    n=n*n*weight; weight=Math.min(1,n*2);
+    v+=n*a;sum+=a;a*=.5;f*=2.12;
+  }
+  return v/sum;
+}
+function warpNoise(x,y,seed){
+  const s=(seed==null?terrainSeed:seed)|0;
+  // two successive warps for more organic flow
+  let wx=fbmAt2(x,y,s+3,5,.006);
+  let wy=fbmAt2(x+37,y-19,s+9,5,.006);
+  const x1=x+(wx-.5)*62,y1=y+(wy-.5)*62;
+  wx=fbmAt2(x1,y1,s+15,4,.014);
+  wy=fbmAt2(x1+21,y1+33,s+19,4,.014);
+  return {x:x1+(wx-.5)*28,y:y1+(wy-.5)*28};
+}
+function continentalMask(u,v,seed){
+  const s=seed|0;
+  const px=u*G*.5+G*.5,py=v*G*.5+G*.5;
+  const w=warpNoise(px,py,s);
+  const large=fbmGrad(w.x,w.y,s+1,6,.0055);
+  const med=fbmAt2(w.x,w.y,s+5,5,.016);
+  const fine=fbmAt2(w.x,w.y,s+11,4,.035);
+  const radial=Math.hypot(u*1.02,v*1.08);
+  // elongated bias varies with seed
+  const ang=Math.atan2(v,u);
+  const stretch=.04*Math.sin(2*ang+s*.02)+.025*Math.sin(3*ang-s*.013);
+  const shape=large*.5+med*.32+fine*.18;
+  return (radial+stretch) - (.52+shape*.48);
+}
+function mountainField(x,y,seed){
+  // coherent range: ridged noise stretched along a dominant direction
+  const s=seed|0;
+  const ang=(s%628)/100;
+  const ca=Math.cos(ang),sa=Math.sin(ang);
+  const cx=x-G/2,cy=y-G/2;
+  const along=cx*ca+cy*sa, across=-cx*sa+cy*ca;
+  const w=warpNoise(x*.9,y*.9,s+30);
+  const ridge=ridgedFbm(w.x*.85+along*.015,w.y*.85,s+7,6,.011);
+  const cross=1-Math.abs(valueNoise2D(across*.02+s,along*.008,s+44)*2-1);
+  return ridge*(.55+.45*cross);
+}
+
+function updateLabels(){
+  if($('vSea'))$('vSea').textContent=$('pSea').value+' m';
+  if($('vLand'))$('vLand').textContent=$('pLand').value+' m';
+  if($('vPeak'))$('vPeak').textContent=$('pPeak').value+' m';
+  if($('vSeed'))$('vSeed').textContent=$('pSeed').value;
+  if($('vPass'))$('vPass').textContent=$('pPass').value+'%';
+  if($('vHeightScale'))$('vHeightScale').textContent=(+$('pHeightScale').value/100).toFixed(1)+'×';
+  if($('vRadius'))$('vRadius').textContent=(+$('pRadius').value).toFixed((+$('pRadius').value)%1?1:0)+' px';
+  if($('vStrength'))$('vStrength').textContent=$('pStrength').value+' m';
+  if($('vSharp'))$('vSharp').textContent=(+$('pSharp').value/100).toFixed(2);
+  if($('vLow'))$('vLow').textContent=$('pLow').value+' m';
+  if($('vMaskRadius'))$('vMaskRadius').textContent=(+$('pMaskRadius').value).toFixed((+$('pMaskRadius').value)%1?1:0)+' px';
+  if($('vMaskOpacity'))$('vMaskOpacity').textContent=$('pMaskOpacity').value+'%';
+  if($('vSandLimit'))$('vSandLimit').textContent=$('pSandLimit').value+' m';
+  if($('vTreeRadius'))$('vTreeRadius').textContent=$('pTreeRadius').value+' px';
+  if($('vTreeDensity'))$('vTreeDensity').textContent=$('pTreeDensity').value+'%';
+  if($('vTreePatch'))$('vTreePatch').textContent=$('pTreePatch').value+'%';
+}
+['pSea','pLand','pPeak','pSeed','pPass','pHeightScale','pRadius','pStrength','pSharp','pLow','pMaskRadius','pMaskOpacity','pSandLimit','pTreeRadius','pTreeDensity','pTreePatch'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('input',updateLabels);
+});
+if($('pSeed')) $('pSeed').addEventListener('input',()=>{terrainSeed=+$('pSeed').value;});
+if($('pHeightScale')) $('pHeightScale').addEventListener('input',()=>{dirty3d=true;if(typeof update3d==='function')update3d();});
+updateLabels();
+
+function updateUndoButtons(){
+  const canUndo=undoStack.length>0, canRedo=redoStack.length>0;
+  if($('undoTop'))$('undoTop').disabled=!canUndo;
+  if($('redoTop'))$('redoTop').disabled=!canRedo;
+}
+function snapshot(){
+  undoStack.push({h:new Float32Array(height),m:new Uint8ClampedArray(maskRGB),o:new Uint8ClampedArray(overrideA),t:new Uint8ClampedArray(treeMask),ta:new Uint8ClampedArray(treeAutoMask)});
+  if(undoStack.length>18)undoStack.shift();
+  redoStack.length=0;
+  updateUndoButtons();
+}
+function normalizeTreeMask(arr){
+  if(!arr)return new Uint8ClampedArray(G*G);
+  const src=new Uint8ClampedArray(arr),out=new Uint8ClampedArray(G*G);
+  // Current encoding: 0 = AUTO, 128 = FORCE ADD, 255 = FORCE BLOCK.
+  // Legacy files stored only exclusions (0 = auto/allowed, 255 = blocked).
+  for(let i=0;i<src.length;i++){
+    const v=src[i];
+    out[i]=v>220?255:(v>80?128:0);
+  }
+  return out;
+}
+function restore(s){
+  height=new Float32Array(s.h);maskRGB=new Uint8ClampedArray(s.m);overrideA=new Uint8ClampedArray(s.o);
+  treeMask=normalizeTreeMask(s.t);treeAutoMask=s.ta?new Uint8ClampedArray(s.ta):buildAutomaticForestMask();dirty3d=true;render2d();updateUndoButtons();
+}
+function doUndo(){
+  if(!undoStack.length)return;
+  redoStack.push({h:new Float32Array(height),m:new Uint8ClampedArray(maskRGB),o:new Uint8ClampedArray(overrideA),t:new Uint8ClampedArray(treeMask),ta:new Uint8ClampedArray(treeAutoMask)});
+  restore(undoStack.pop());
+  if($('status'))$('status').textContent='undo';
+}
+function doRedo(){
+  if(!redoStack.length)return;
+  undoStack.push({h:new Float32Array(height),m:new Uint8ClampedArray(maskRGB),o:new Uint8ClampedArray(overrideA),t:new Uint8ClampedArray(treeMask),ta:new Uint8ClampedArray(treeAutoMask)});
+  restore(redoStack.pop());
+  if($('status'))$('status').textContent='redo';
+}
+if($('undoTop'))$('undoTop').onclick=doUndo;
+if($('redoTop'))$('redoTop').onclick=doRedo;
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  const editing = e.target.isContentEditable || tag==='input' || tag==='textarea' || tag==='select';
+  if(editing)return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(!mod)return;
+  const k=e.key.toLowerCase();
+  if(k==='z' && !e.shiftKey){e.preventDefault();doUndo();}
+  else if((k==='z' && e.shiftKey) || k==='y'){e.preventDefault();doRedo();}
+});
+
+function landHeight(edge, nDetail, nRidge, land, peak, kind, x, y){
+  const e=Math.max(0,Math.min(1,edge));
+  // coastal plain then rise
+  const plain=smoothstep(0.02,0.28,e);
+  const hills=Math.pow(smoothstep(0.18,0.75,e),1.4);
+  const peaks=Math.pow(smoothstep(0.4,1.0,e),2.1);
+  let h=lerp(1.2, land, plain);
+  h+=hills*(12+nDetail*18);
+  const mtn=mountainField(x,y,terrainSeed);
+  h+=peaks*(peak-land)*(.25+.55*nRidge)*(.4+.6*mtn);
+  h+=nDetail*5*e;
+  if(kind==='fjord') h=lerp(land*.8, land+e*(peak-land)*.3+nDetail*10, plain);
+  if(kind==='atoll') h=land*.55+nDetail*2.5+e*5;
+  if(kind==='shelf') h=land*.45+e*(land*1.4+nDetail*12)+peaks*mtn*(peak-land)*.2;
+  return h;
+}
+function shapeField(kind,x,y){
+  const u=(x-G/2)/(G/2),v=(y-G/2)/(G/2);
+  const s=terrainSeed|0;
+  const w=warpNoise(x,y,s);
+  const n=fbmAt(w.x,w.y,s)-.5;
+  const n2=fbmAt2(w.x,w.y,s+21,5,.022)-.5;
+  const ridge=ridgedFbm(w.x,w.y,s+7,6,.013);
+  let inside=0,d=2,surfaceNoise=n,heightBoost=0,edge=0;
+  if(kind==='square'){
+    inside=1;d=0;edge=1;surfaceNoise=n*.9;
+  }else if(kind==='blank'){
+    inside=0;d=2;edge=0;surfaceNoise=0;
+  }else if(kind==='archipelago'){
+    const centers=[
+      [-.12+Math.sin(s*.013)*.14,.02+Math.cos(s*.011)*.12,.7,.78],
+      [.45+Math.cos(s*.017)*.12,-.3+Math.sin(s*.015)*.1,.3,.34],
+      [-.5+Math.sin(s*.019)*.1,.4+Math.cos(s*.014)*.09,.24,.28],
+      [.2+Math.cos(s*.012)*.1,.5+Math.sin(s*.016)*.08,.2,.22],
+      [-.08+Math.sin(s*.02)*.16,-.48+Math.cos(s*.018)*.12,.22,.26],
+      [.55+Math.sin(s*.021)*.08,.2+Math.cos(s*.015)*.08,.14,.16]
+    ];
+    let best=9;
+    for(let i=0;i<centers.length;i++){
+      const c=centers[i],cx=c[0],cy=c[1],rx=c[2],ry=c[3];
+      const ww=warpNoise(x+cx*18,y+cy*18,s+3+i*5);
+      const dx=(u-cx)/(rx+n*.07),dy=(v-cy)/(ry+n2*.06);
+      const dd=Math.hypot(dx,dy)-(fbmAt2(ww.x,ww.y,s+15+i,4,.032)-.5)*.16;
+      best=Math.min(best,dd);
+    }
+    d=best;inside=d<.8;edge=inside?smoothstep(.8,.12,d):0;
+    surfaceNoise=n;
+  }else if(kind==='atoll'){
+    const ww=warpNoise(x,y,s+4);
+    const ring=Math.hypot(u/(.66+n*.06),v/(.66+n2*.06));
+    const warped=ring+(fbmAt2(ww.x,ww.y,s+8,4,.028)-.5)*.12;
+    const lagoon=warped<.3;
+    const rim=warped>.34 && warped<.7;
+    inside=rim?1:0;
+    d=rim?Math.abs(warped-.52):warped;
+    edge=rim?smoothstep(.2,0,Math.abs(warped-.52)):0;
+    if(lagoon){inside=0;d=warped;heightBoost=-999;}
+    surfaceNoise=n*.5;
+  }else if(kind==='peninsula'){
+    const ww=warpNoise(x,y,s+6);
+    const coastN=(fbmGrad(ww.x,ww.y,s+2,5,.015)-.5);
+    const width=.4+coastN*.14+smoothstep(-.3,.75,v)*.28;
+    const body=Math.abs(u)/width+(v-.15)*.12;
+    const tip=Math.hypot(u/(.22),(v+.72)/.38);
+    d=Math.min(body,tip)-(fbmAt2(ww.x,ww.y,s+9,4,.03)-.5)*.12;
+    inside=(v>-0.78 && body<1.02) || tip<.92;
+    inside=inside&&d<.92;
+    edge=inside?smoothstep(.92,.18,d):0;
+    surfaceNoise=n;
+  }else if(kind==='fjord'){
+    const base=Math.hypot(u/(.94),v/(.6));
+    let landMask=v<0.28 && base<1.0+(n*.1);
+    d=base;
+    for(let k=0;k<6;k++){
+      const cx=-.62+k*.26+Math.sin(s*.01+k*1.3)*0.07;
+      const meander=Math.sin((v+1)*4+k+s*.02)*.04;
+      const channel=Math.abs(u-cx-meander-(n2*.05))/(0.045+k*.007)+Math.max(0,v+0.4)/(0.5+k*.06);
+      const cut=channel-(fbmAt2(x+k*28,y,s+20+k,4,.035)-.5)*.18;
+      if(cut<1.1){landMask=false;d=Math.min(d,cut);}
+    }
+    inside=landMask;edge=inside?smoothstep(.98,.2,d):0;
+    surfaceNoise=n*.65;
+  }else if(kind==='canyon'){
+    inside=1;d=0;edge=1;surfaceNoise=n;
+    const cx=Math.sin(s*.021)*.2+(fbmAt2(x*.25,y*.25,s+3,4,.01)-.5)*.18;
+    const path=u-cx-Math.sin(v*2.8+s*.02)*.14-Math.sin(v*6.5)*.05-(n2*.03);
+    const corridor=Math.abs(path)/(.08+Math.abs(v)*.025)+Math.abs(v)*.04;
+    if(corridor<1.3) heightBoost=-1;
+  }else if(kind==='crater'){
+    const ww=warpNoise(x,y,s+8);
+    const r=Math.hypot(u/(.7+n*.05),v/(.7+n2*.05));
+    const wr=r+(fbmAt2(ww.x,ww.y,s+4,4,.032)-.5)*.1;
+    inside=wr<.9;d=wr;
+    edge=inside?smoothstep(.9,.3,wr):0;
+    surfaceNoise=n*.45;
+    if(wr<.24) heightBoost=-2;
+    else if(wr>.3 && wr<.5) heightBoost=1;
+  }else if(kind==='shelf'){
+    const ww=warpNoise(x,y,s+2);
+    const coast=u+0.06+(fbmGrad(ww.x,ww.y,s+1,5,.01)-.5)*.22
+      +(fbmAt2(ww.x,ww.y,s+6,4,.028)-.5)*.1;
+    inside=coast<0.3;d=Math.abs(coast);
+    edge=inside?smoothstep(.3,-.75,coast):0;
+    surfaceNoise=n;
+    if(coast>=0.3 && coast<0.82) heightBoost=-3;
+  }else if(kind==='island' || (kind&&kind.indexOf('island')===0)){
+    const ik=islandKind||'classic';
+    const ww=warpNoise(x,y,s+11);
+    const ang=Math.atan2(v,u), rad=Math.hypot(u,v);
+    let mask=2;
+    if(ik==='classic'){
+      mask=continentalMask(u,v,s);
+    }else if(ik==='high'){
+      mask=continentalMask(u*1.05,v*1.05,s)-.06;
+      heightBoost=10; // mark high relief later
+    }else if(ik==='low'){
+      mask=continentalMask(u*.9,v*.9,s)+.02;
+      heightBoost=11; // low flat
+    }else if(ik==='barrier'){
+      const along=u*0.15+v;
+      const across=u-v*0.1;
+      const body=Math.abs(across)/(.22+(fbmAt2(ww.x,ww.y,s,3,.03)-.5)*.08)+Math.max(0,Math.abs(along)-.55)*1.4;
+      mask=body-0.85+(fbmAt2(ww.x,ww.y,s+2,3,.04)-.5)*.12;
+    }else if(ik==='twin'){
+      const d1=continentalMask(u+.28,v*.9,s);
+      const d2=continentalMask(u-.3,v*.95,s+3);
+      mask=Math.min(d1,d2);
+      // thin bridge
+      const bridge=Math.abs(v)/.12+Math.abs(u)*1.1;
+      mask=Math.min(mask, bridge-0.95);
+    }else if(ik==='caldera'){
+      mask=continentalMask(u,v,s);
+      const r=Math.hypot(u/.55,v/.55)+(fbmAt2(ww.x,ww.y,s,3,.04)-.5)*.06;
+      if(r<.42) heightBoost=12; // caldera floor marker
+      else if(r<.55) heightBoost=13; // rim
+    }else if(ik==='mesa'){
+      mask=continentalMask(u*1.1,v*1.1,s);
+      heightBoost=14;
+    }else if(ik==='rias'){
+      mask=continentalMask(u,v,s);
+      for(let k=0;k<5;k++){
+        const cx=-.45+k*.22+Math.sin(s*.01+k)*.05;
+        const inlet=Math.abs(u-cx)/(.05+k*.004)+Math.max(0,v+.15)/.55;
+        const cut=inlet-(fbmAt2(x+k*20,y,s+k,3,.04)-.5)*.12;
+        if(cut<1) mask=Math.max(mask, 0.08-cut*.1);
+      }
+    }else if(ik==='spit'){
+      const body=Math.hypot(u/.35,(v-.25)/.55);
+      const tail=Math.abs(u-v*.3)/.08+Math.max(0,-(v+.1))*1.3;
+      mask=Math.min(body-.7, tail-.7)+(fbmAt2(ww.x,ww.y,s,3,.05)-.5)*.1;
+      heightBoost=11;
+    }else if(ik==='arch'){
+      mask=continentalMask(u,v,s);
+      // holes near edge
+      const hole=Math.hypot(u-.35,v+.2);
+      if(hole<.16) mask=0.2;
+      const hole2=Math.hypot(u+.3,v-.25);
+      if(hole2<.12) mask=0.2;
+    }else if(ik==='ring'){
+      const r=Math.hypot(u/.7,v/.7)+(fbmAt2(ww.x,ww.y,s,3,.03)-.5)*.08;
+      mask=Math.abs(r-.55)-.18;
+    }else if(ik==='crescent'){
+      const r=Math.hypot(u/.65,v/.65);
+      const outer=r-.72+(fbmAt2(ww.x,ww.y,s,3,.03)-.5)*.08;
+      const inner=Math.hypot(u-.2,v)/.45-.55;
+      mask=Math.max(outer, -inner);
+    }else if(ik==='star'){
+      const spikes=5;
+      const a=ang+s*.01;
+      const star=0.45+0.28*Math.cos(spikes*a)+(fbmAt2(ww.x,ww.y,s,2,.04)-.5)*.06;
+      mask=rad-star;
+    }else if(ik==='spiral'){
+      const turns=2.2;
+      const spiral=Math.abs((ang/Math.PI+1)*.5*turns - rad*1.1 + (fbmAt2(ww.x,ww.y,s,2,.03)-.5)*.1)%1;
+      mask=Math.min(Math.abs(spiral-.5)*2.2, rad-.85)-.2;
+    }else if(ik==='serpent'){
+      const path=v-Math.sin(u*3.2+s*.02)*.35-Math.sin(u*7)*.08;
+      mask=Math.abs(path)/(.14+(fbmAt2(ww.x,ww.y,s,3,.04)-.5)*.04)+Math.max(0,Math.abs(u)-.85)*2-0.9;
+    }else if(ik==='shards'){
+      let best=9;
+      for(let k=0;k<7;k++){
+        const cx=Math.sin(s*.02+k*1.7)*.45, cy=Math.cos(s*.017+k*1.3)*.4;
+        const rr=.12+((s+k*9)%5)*.03;
+        const dd=Math.hypot((u-cx)/rr,(v-cy)/rr)-(fbmAt2(x+k*11,y,s+k,2,.05)-.5)*.15;
+        best=Math.min(best,dd-0.7);
+      }
+      mask=best;
+    }else if(ik==='crystal'){
+      mask=continentalMask(u,v,s);
+      heightBoost=15; // spires
+    }else if(ik==='plateau'){
+      mask=continentalMask(u*1.05,v*1.05,s);
+      heightBoost=16; // cliff plateau
+    }else if(ik==='mushroom'){
+      const stem=Math.hypot(u/.18,v/.18);
+      const cap=Math.hypot(u/.55,(v+.05)/.4);
+      if(stem<.9) mask=stem-0.9;
+      else mask=cap-0.85+(fbmAt2(ww.x,ww.y,s,2,.04)-.5)*.08;
+      heightBoost=16;
+    }else if(ik==='heart'){
+      // implicit heart curve
+      const xh=u*1.1, yh=v*1.1+.1;
+      const heart=Math.pow(xh*xh+yh*yh-1,3)-xh*xh*yh*yh*yh;
+      mask=heart*.35+(fbmAt2(ww.x,ww.y,s,2,.04)-.5)*.05;
+    }else if(ik==='needle'){
+      mask=continentalMask(u*1.3,v*1.3,s)+.05;
+      heightBoost=17;
+    }else if(ik==='lagoonchain'){
+      let best=9;
+      for(let k=0;k<4;k++){
+        const cx=-.4+k*.28, cy=Math.sin(k*1.2+s*.01)*.2;
+        const r=Math.hypot((u-cx)/.28,(v-cy)/.28);
+        const ring=Math.abs(r-.55)-.16;
+        best=Math.min(best, ring+(fbmAt2(ww.x,ww.y,s+k,2,.04)-.5)*.06);
+      }
+      mask=best;
+    }else{
+      mask=continentalMask(u,v,s);
+    }
+    d=mask;
+    inside=mask<0.04;
+    edge=inside?smoothstep(.04,-.55,mask):0;
+    surfaceNoise=n;
+  }else{
+    const mask=continentalMask(u,v,s);
+    d=mask;
+    inside=mask<0.04;
+    edge=inside?smoothstep(.04,-.6,mask):0;
+    surfaceNoise=n;
+  }
+  return {inside,d,surfaceNoise,heightBoost,n,n2,ridge,edge};
+}
+function naturalizeHeightField(sea,peak){
+  // 1) mild thermal erosion — collapse steep slopes
+  let cur=new Float32Array(height);
+  for(let pass=0;pass<3;pass++){
+    const next=new Float32Array(cur);
+    for(let y=1;y<G-1;y++)for(let x=1;x<G-1;x++){
+      const i=idx(x,y),h=cur[i];
+      if(h<=sea) {next[i]=h;continue;}
+      let maxD=0,tx=0,ty=0;
+      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+        if(!ox&&!oy)continue;
+        const dh=h-cur[idx(x+ox,y+oy)];
+        if(dh>maxD){maxD=dh;tx=ox;ty=oy;}
+      }
+      if(maxD>2.8){
+        const move=Math.min((maxD-2.2)*.22, 2.2);
+        next[i]-=move;
+        next[idx(x+tx,y+ty)]=Math.min(peak, next[idx(x+tx,y+ty)]+move*.9);
+      }
+    }
+    cur=next;
+  }
+  // 2) short hydraulic carve along steepest descent (valley tendency)
+  const flow=new Float32Array(G*G);
+  for(let y=1;y<G-1;y++)for(let x=1;x<G-1;x++){
+    const i=idx(x,y); if(cur[i]<=sea+1) continue;
+    let cx=x,cy=y;
+    for(let step=0;step<28;step++){
+      let best=0,bx=0,by=0,bh=cur[idx(cx,cy)];
+      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+        if(!ox&&!oy)continue;
+        const nx=cx+ox,ny=cy+oy;
+        if(nx<1||ny<1||nx>=G-1||ny>=G-1)continue;
+        const nh=cur[idx(nx,ny)];
+        if(bh-nh>best){best=bh-nh;bx=ox;by=oy;}
+      }
+      if(best<0.15) break;
+      cx+=bx;cy+=by;
+      flow[idx(cx,cy)]+=1;
+      if(cur[idx(cx,cy)]<=sea+1) break;
+    }
+  }
+  let fmax=1;
+  for(let i=0;i<flow.length;i++) if(flow[i]>fmax) fmax=flow[i];
+  for(let i=0;i<G*G;i++){
+    if(flow[i]<1||cur[i]<=sea) continue;
+    const t=Math.min(1, flow[i]/(fmax*.35));
+    cur[i]-=t*t*Math.min(14, (cur[i]-sea)*.12);
+  }
+  // 3) soft coastal blur only
+  const out=new Float32Array(cur);
+  for(let y=1;y<G-1;y++)for(let x=1;x<G-1;x++){
+    const i=idx(x,y),h=cur[i];
+    if(h>18||h<sea-2){out[i]=h;continue;}
+    let ssum=0,c=0;
+    for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){ssum+=cur[idx(x+ox,y+oy)];c++;}
+    out[i]=lerp(h,ssum/c, h<6 ? .45 : .22);
+  }
+  height.set(out);
+}
+function islandLabel(ik){
+  const map={classic:'CLASSIC VOLCANIC',high:'HIGH MOUNTAINOUS',low:'LOW CORAL CAY',barrier:'BARRIER / LONG',twin:'TWIN LINKED',caldera:'CALDERA',mesa:'TABLE / MESA',rias:'RIAS / DROWNED',spit:'SPIT / SANDBAR',arch:'ARCH ROCKS',ring:'RING DONUT',crescent:'CRESCENT',star:'STAR',spiral:'SPIRAL',serpent:'SERPENT',shards:'SHATTERED',crystal:'CRYSTAL SPIRES',plateau:'CLIFF PLATEAU',mushroom:'MUSHROOM CAP',heart:'HEART',needle:'SKY NEEDLE',lagoonchain:'LAGOON CHAIN'};
+  return map[ik]||ik;
+}
+function setIslandKind(ik, regenerate){
+  islandKind=ik||'classic';
+  document.querySelectorAll('[data-island]').forEach(b=>b.classList.toggle('on', b.dataset.island===islandKind));
+  const lab=$('islandMenuLabel');
+  if(lab) lab.textContent='ISLAND · '+islandLabel(islandKind);
+  if(regenerate) makeTemplate('island');
+}
+function makeTemplate(kind){
+  snapshot();baseTemplate=kind;
+  terrainSeed=+$('pSeed').value||42;
+  const sea=+$('pSea').value,land=+$('pLand').value,peak=+$('pPeak').value;
+  document.querySelectorAll('[data-template]').forEach(b=>b.classList.toggle('primary',b.dataset.template===kind));
+  const lab=$('islandMenuLabel');
+  if(kind==='island'){
+    if(lab){ lab.textContent='ISLAND · '+islandLabel(islandKind); lab.style.background='var(--gold)'; lab.style.color='#0b0d10'; }
+  }else if(lab){ lab.style.background='var(--panel2)'; lab.style.color='var(--txt)'; }
+
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const f=shapeField(kind,x,y);
+    const inside=f.inside,d=f.d,surfaceNoise=f.surfaceNoise,heightBoost=f.heightBoost;
+    const n=f.n,n2=f.n2,ridge=f.ridge,edge=f.edge;
+    let h=sea;
+    if(kind==='blank'){
+      h=sea+n*1.5;
+    }else if(kind==='canyon'){
+      const elev=landHeight(0.6+surfaceNoise*.2, surfaceNoise, ridge, land, peak, kind, x, y);
+      h=elev;
+      if(heightBoost===-1){
+        const cx=Math.sin(terrainSeed*.021)*.2;
+        const path=((x-G/2)/(G/2))-cx-Math.sin(((y-G/2)/(G/2))*2.8+terrainSeed*.02)*.14;
+        const corridor=Math.abs(path)/.095;
+        const cut=smoothstep(1.25,0.12,corridor);
+        h=lerp(h, sea+5+Math.abs(n)*4, cut*.96);
+        const wall=smoothstep(0.12,0.5,corridor)*smoothstep(1.15,0.5,corridor);
+        h=lerp(h, elev+ridge*16, wall*.45);
+      }
+      const margin=Math.max(Math.abs((x-G/2)/(G/2)),Math.abs((y-G/2)/(G/2)));
+      if(margin>.84) h=lerp(h,sea,smoothstep(.84,1.0,margin));
+    }else if(kind==='crater'){
+      if(inside){
+        h=landHeight(edge, surfaceNoise, ridge, land, Math.min(peak,land+90), kind, x, y);
+        if(heightBoost===-2) h=lerp(h, Math.max(sea+5, land*.2), 0.92);
+        if(heightBoost===1) h=lerp(h, Math.min(peak*.55, land+28+ridge*36), 0.78);
+      }else if(d<1.1){
+        h=lerp(sea, 1.2, smoothstep(1.1,.8,d));
+      }
+    }else if(kind==='shelf'){
+      const u=(x-G/2)/(G/2);
+      if(inside){
+        h=landHeight(edge, surfaceNoise, ridge, land, peak*.65, kind, x, y);
+      }else if(heightBoost===-3){
+        const tt=smoothstep(.3,.82,u+0.06+surfaceNoise*.12);
+        // shallow shelf then continental slope
+        h=lerp(-2, sea, smoothstep(0,1,tt*tt))+surfaceNoise*2.5;
+      }else{
+        h=sea+(n2||0)*2.5;
+      }
+    }else if(kind==='atoll' && heightBoost===-999){
+      h=lerp(sea*.35, -2.5, 0.55)+(n||0)*1.8;
+    }else if(inside){
+      if(kind==='square'){
+        h=landHeight(.65+surfaceNoise*.2, surfaceNoise, ridge, land, peak, kind, x, y);
+      }else{
+        h=landHeight(edge, surfaceNoise, ridge, land, peak, kind, x, y);
+        if(edge<0.25) h=lerp(1.0, h, smoothstep(0.01,0.25,edge));
+        // island subtype relief
+        if(kind==='island'){
+          const ik=islandKind||'classic';
+          if(heightBoost===10){ // high mountainous
+            h=lerp(h, land+edge*(peak-land)*(.55+ridge*.5), 0.55);
+          }else if(heightBoost===11||ik==='low'||ik==='spit'){
+            h=lerp(h, land*.45+surfaceNoise*3, 0.75);
+          }else if(heightBoost===12){ // caldera floor
+            h=lerp(h, Math.max(sea+3,land*.25), 0.9);
+          }else if(heightBoost===13){ // caldera rim
+            h=lerp(h, Math.min(peak*.6, land+30+ridge*40), 0.7);
+          }else if(heightBoost===14||ik==='mesa'){
+            h=lerp(h, land+18+edge*12, 0.65);
+            if(edge>0.35) h=lerp(h, land+22, 0.5);
+          }else if(heightBoost===15||ik==='crystal'){
+            const spire=Math.pow(ridge,2.2)*edge;
+            h+=spire*(peak-land)*.7;
+          }else if(heightBoost===16||ik==='plateau'||ik==='mushroom'){
+            if(edge>0.25) h=lerp(h, land+28+surfaceNoise*5, 0.7);
+            else h=lerp(1.5, land+8, edge/0.25);
+          }else if(heightBoost===17||ik==='needle'){
+            const cen=1-Math.min(1, Math.hypot((x-G/2)/(G*.12),(y-G/2)/(G*.12)));
+            h=lerp(h, peak*.85, Math.pow(Math.max(0,cen),2.5)*.8);
+          }
+        }
+      }
+    }else if(kind!=='blank' && d<1.2){
+      // bathymetry: gentle nearshore shelf
+      const shore=smoothstep(1.2, 0.0, d);
+      h=lerp(sea, 0.5, Math.pow(shore,1.4)*.9);
+      h+=surfaceNoise*2*shore;
+    }else{
+      h=sea+(n||0)*1.8;
+    }
+    if(h>sea+0.5){
+      const micro=(fbmAt2(x,y,terrainSeed+40,4,.055)-.5)*4.2;
+      const macro=(fbmAt2(x,y,terrainSeed+60,3,.012)-.5)*7;
+      h+=micro*Math.min(1,(h-sea)/10);
+      h+=macro*Math.min(1,(h-sea)/40)*.5;
+    }
+    height[idx(x,y)]=h;
+  }
+  if(kind!=='blank') naturalizeHeightField(sea, peak);
+  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();render2d();dirty3d=true;
+  $('status').textContent=(kind==='island'?('island/'+islandKind):kind)+' · seed '+terrainSeed+' · naturalized';updateUndoButtons();
+}
+document.querySelectorAll('[data-template]').forEach(b=>b.onclick=()=>makeTemplate(b.dataset.template));
+
+
+
+function passStrength(){return (+$('pPass').value||45)/100;}
+
+function applyErosion(){
+  snapshot();
+  const str=passStrength(),sea=+$('pSea').value,peak=+$('pPeak').value;
+  const next=new Float32Array(height);
+  const iters=2+Math.round(str*3);
+  for(let it=0;it<iters;it++){
+    const src=it?next:height;
+    for(let y=1;y<G-1;y++)for(let x=1;x<G-1;x++){
+      const i=idx(x,y),h=src[i];
+      if(h<=sea+1){next[i]=h;continue;}
+      let maxDrop=0,tx=0,ty=0;
+      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+        if(!ox&&!oy)continue;
+        const dh=h-src[idx(x+ox,y+oy)];
+        if(dh>maxDrop){maxDrop=dh;tx=ox;ty=oy;}
+      }
+      if(maxDrop>0.4){
+        const move=Math.min(maxDrop*.35,3.5)*str;
+        next[i]=h-move;
+        const j=idx(x+tx,y+ty);
+        next[j]=Math.min(peak,next[j]+move*.85);
+      }else next[i]=h;
+    }
+  }
+  height.set(next);
+  if($('autoMask')?.checked)generateAutoMask(false);
+  dirty3d=true;render2d();updateUndoButtons();
+  $('status').textContent='erosion pass';
+}
+
+function applyTerraces(){
+  snapshot();
+  const str=passStrength(),sea=+$('pSea').value,peak=+$('pPeak').value;
+  const step=Math.max(4,lerp(18,6,str));
+  for(let i=0;i<G*G;i++){
+    const h=height[i];
+    if(h<=sea+0.5) continue;
+    const band=Math.round((h-sea)/step)*step+sea;
+    height[i]=lerp(h,clamp(band,sea,peak),str*.85);
+  }
+  if($('autoMask')?.checked)generateAutoMask(false);
+  dirty3d=true;render2d();updateUndoButtons();
+  $('status').textContent='terraces pass';
+}
+
+function applyDunes(){
+  snapshot();
+  const str=passStrength(),sea=+$('pSea').value,peak=+$('pPeak').value;
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i];
+    if(h<=sea+1||h>sea+35) continue;
+    const wave=Math.sin(x*.09+terrainSeed*.03)+.55*Math.sin(x*.17+y*.04+1.2);
+    const ridge=Math.pow(Math.abs(wave),1.4)*Math.sign(wave||1);
+    height[i]=clamp(h+ridge*str*7,sea,peak);
+  }
+  if($('autoMask')?.checked)generateAutoMask(false);
+  dirty3d=true;render2d();updateUndoButtons();
+  $('status').textContent='dunes pass';
+}
+
+function applyNoiseDetail(){
+  snapshot();
+  const str=passStrength(),sea=+$('pSea').value,peak=+$('pPeak').value;
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i];
+    if(h<=sea) continue;
+    const n=fbmAt2(x,y,terrainSeed+99,4,.04)-.5;
+    height[i]=clamp(h+n*str*14,sea,peak);
+  }
+  if($('autoMask')?.checked)generateAutoMask(false);
+  dirty3d=true;render2d();updateUndoButtons();
+  $('status').textContent='noise detail pass';
+}
+
+function mirrorHeight(axis){
+  snapshot();
+  const next=new Float32Array(height);
+  const nextM=new Uint8ClampedArray(maskRGB);
+  const nextO=new Uint8ClampedArray(overrideA);
+  const nextT=new Uint8ClampedArray(treeMask);
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const sx=axis==='h'?G-1-x:x;
+    const sy=axis==='v'?G-1-y:y;
+    const i=idx(x,y),j=idx(sx,sy);
+    next[i]=height[j];
+    nextO[i]=overrideA[j];nextT[i]=treeMask[j];
+    nextM[i*3]=maskRGB[j*3];nextM[i*3+1]=maskRGB[j*3+1];nextM[i*3+2]=maskRGB[j*3+2];
+  }
+  height=next;maskRGB=nextM;overrideA=nextO;treeMask=nextT;
+  dirty3d=true;render2d();updateUndoButtons();
+  $('status').textContent=axis==='h'?'mirrored horizontally':'mirrored vertically';
+}
+
+function importHeightmapFile(file){
+  if(!file)return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    snapshot();
+    const c=document.createElement('canvas');c.width=G;c.height=G;
+    const g=c.getContext('2d');
+    g.drawImage(img,0,0,G,G);
+    const data=g.getImageData(0,0,G,G).data;
+    const sea=+$('pSea').value,peak=+$('pPeak').value;
+    for(let i=0;i<G*G;i++){
+      const y=data[i*4],u=data[i*4+1],v=data[i*4+2];
+      const gray=(y*0.299+u*0.587+v*0.114)/255;
+      height[i]=lerp(sea,peak,gray);
+    }
+    overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();
+    dirty3d=true;render2d();updateUndoButtons();
+    $('status').textContent='heightmap imported · '+file.name;
+    URL.revokeObjectURL(url);
+  };
+  img.onerror=()=>{$('status').textContent='heightmap import failed';URL.revokeObjectURL(url);};
+  img.src=url;
+}
+
+function wireBaseExtras(){
+  $('btnRandomize')?.addEventListener('click',()=>{
+    const s=1+Math.floor(Math.random()*9999);
+    $('pSeed').value=s;terrainSeed=s;updateLabels();
+    makeTemplate(baseTemplate||'island');
+  });
+  $('btnRegenBase')?.addEventListener('click',()=>{
+    terrainSeed=+$('pSeed').value||42;
+    makeTemplate(baseTemplate||'island');
+  });
+  $('pSeed')?.addEventListener('change',()=>{terrainSeed=+$('pSeed').value||42;});
+  $('btnErode')?.addEventListener('click',applyErosion);
+  $('btnTerraces')?.addEventListener('click',applyTerraces);
+  $('btnDunes')?.addEventListener('click',applyDunes);
+  $('btnNoisePass')?.addEventListener('click',applyNoiseDetail);
+  $('btnMirrorH')?.addEventListener('click',()=>mirrorHeight('h'));
+  $('btnMirrorV')?.addEventListener('click',()=>mirrorHeight('v'));
+  $('btnImportHeight')?.addEventListener('click',()=>$('heightmapFile').click());
+  $('heightmapFile')?.addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0];
+    importHeightmapFile(f);
+    e.target.value='';
+  });
+  document.querySelectorAll('[data-island]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      setIslandKind(b.dataset.island, true);
+      const menu=$('islandMenu'); if(menu) menu.open=false;
+    });
+  });
+}
+wireBaseExtras();
+setIslandKind(islandKind, false);
+
+
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{
+  tool=b.dataset.tool;document.querySelectorAll('#heightTools [data-tool]').forEach(x=>x.classList.toggle('on',x===b));
+  if(typeof updateSculptCurrent==='function') updateSculptCurrent(tool);
+  mode='height';show2d('height');
+});
+document.querySelectorAll('[data-mask]').forEach(b=>b.onclick=()=>{
+  maskTool=b.dataset.mask;document.querySelectorAll('[data-mask]').forEach(x=>x.classList.toggle('on',x===b));
+  const isTreeTool=maskTool==='treeAdd'||maskTool==='treeBlock'||maskTool==='treeErase';
+  show2d(isTreeTool?'trees':'mask');
+  if(maskTool==='treeAdd')$('status').textContent='деревья · добавить белую область';
+  else if(maskTool==='treeBlock')$('status').textContent='деревья · запретить чёрной областью';
+  else if(maskTool==='treeErase')$('status').textContent='деревья · вернуть автоматическую маску';
+  else if(maskTool==='r')$('status').textContent='материалы · кисть камня / detail 0';
+  else if(maskTool==='g')$('status').textContent='материалы · кисть осадка / detail 1';
+  else if(maskTool==='b')$('status').textContent='материалы · кисть растительности / detail 2';
+  else if(maskTool==='smooth')$('status').textContent='материалы · сглаживание границ';
+  else if(maskTool==='erase')$('status').textContent='материалы · вернуть автоматическую разметку';
+});
+
+function show2d(which){
+  mode=which;$('panel2d').classList.add('on');$('panel3d').classList.remove('on');
+  $('tabHeight').classList.toggle('on',which==='height');
+  $('tabMask').classList.toggle('on',which==='mask');
+  $('tabTrees').classList.toggle('on',which==='trees');
+  $('tab3d').classList.remove('on');
+  $('heightLegend').style.display=which==='height'?'block':'none';
+  $('maskLegend').style.display=which==='mask'?'block':'none';
+  $('treeLegend').style.display=which==='trees'?'block':'none';
+  if(which==='height')$('hud').innerHTML='<b>HEIGHT</b> · drag to sculpt · wheel zoom · right/middle-drag pan · Alt+wheel brush radius';
+  else if(which==='mask')$('hud').innerHTML='<b>MATERIALS</b> · paint rock / sediment / vegetation';
+  else $('hud').innerHTML='<b>TREES</b> · white = trees · black = no trees';
+  render2d();
+}
+$('tabHeight').onclick=()=>show2d('height');
+$('tabMask').onclick=()=>show2d('mask');
+$('tabTrees').onclick=()=>show2d('trees');
+$('tab3d').onclick=()=>{
+  mode='3d';$('panel2d').classList.remove('on');$('panel3d').classList.add('on');
+  $('tabHeight').classList.remove('on');$('tabMask').classList.remove('on');$('tabTrees').classList.remove('on');$('tab3d').classList.add('on');
+  resize3d();update3d();
+};
+
+function applyStampAt(cx,cy,prev){
+  const r=+$('pRadius').value,str=+$('pStrength').value,sharp=+$('pSharp').value/100;
+  const sea=+$('pSea').value,peak=+$('pPeak').value,low=+$('pLow').value;
+  let dx=1,dy=0;
+  if(prev){dx=cx-prev.x;dy=cy-prev.y;const q=Math.hypot(dx,dy)||1;dx/=q;dy/=q;}
+  const minx=Math.max(0,Math.floor(cx-r)),maxx=Math.min(G-1,Math.ceil(cx+r));
+  const miny=Math.max(0,Math.floor(cy-r)),maxy=Math.min(G-1,Math.ceil(cy+r));
+  const needSmooth=tool==='smooth'||tool==='erode'||tool==='flatten'||tool==='weather'||tool==='sharpen'||tool==='polish';
+  const temp=needSmooth?new Float32Array((maxx-minx+1)*(maxy-miny+1)):null;
+  if(needSmooth){
+    let k=0;
+    for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+      let s=0,c=0;for(let yy=Math.max(0,y-2);yy<=Math.min(G-1,y+2);yy++)for(let xx=Math.max(0,x-2);xx<=Math.min(G-1,x+2);xx++){s+=height[idx(xx,yy)];c++;}
+      temp[k++]=s/c;
+    }
+  }
+  let flattenTarget=low;
+  if(tool==='flatten'||tool==='plateau'){
+    let s=0,c=0;
+    for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+      const d=Math.hypot(x-cx,y-cy); if(d>r) continue;
+      s+=height[idx(x,y)];c++;
+    }
+    if(c>0) flattenTarget=s/c;
+    if(tool==='plateau') flattenTarget=low;
+  }
+  let tk=0;
+  for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+    const ox=x-cx,oy=y-cy,d=Math.hypot(ox,oy);if(d>r){if(temp)tk++;continue;}
+    const fall=Math.pow(1-d/r,1.65),i=idx(x,y),h=height[i],tt=d/r;
+    if(tool==='mountain'){
+      const across=Math.abs(-dy*ox+dx*oy),along=Math.abs(dx*ox+dy*oy);
+      const transverse=Math.pow(clamp(1-across/r,0,1),sharp);
+      const endcap=clamp(1-along/(r*1.25),0,1);
+      const profile=Math.max(transverse*.72,Math.pow(fall,sharp))*Math.max(.55,endcap);
+      height[i]=clamp(h+str*profile*(.94+.12*hashNoise(x,y,49)),sea,peak);
+    }else if(tool==='raise')height[i]=clamp(h+str*fall,sea,peak);
+    else if(tool==='softRaise')height[i]=clamp(h+str*Math.pow(fall,2.2)*.7,sea,peak);
+    else if(tool==='hardRaise')height[i]=clamp(h+str*Math.pow(fall,0.7),sea,peak);
+    else if(tool==='lower')height[i]=clamp(h-str*fall,sea,peak);
+    else if(tool==='softLower')height[i]=clamp(h-str*Math.pow(fall,2.2)*.7,sea,peak);
+    else if(tool==='hardLower')height[i]=clamp(h-str*Math.pow(fall,0.7),sea,peak);
+    else if(tool==='pinch'){
+      const ch=height[idx(clamp(Math.round(cx),0,G-1),clamp(Math.round(cy),0,G-1))];
+      height[i]=lerp(h, ch, fall*.55);
+    }else if(tool==='inflate')height[i]=clamp(h+str*Math.pow(1-tt,2.4),sea,peak);
+    else if(tool==='deflate')height[i]=clamp(h-str*Math.pow(1-tt,2.4),sea,peak);
+    else if(tool==='clay')height[i]=clamp(h+str*Math.pow(1-tt,1.1)*.55,sea,peak);
+    else if(tool==='blob')height[i]=clamp(h+str*Math.exp(-tt*tt*3.2),sea,peak);
+    else if(tool==='amplify'){
+      const base=height[idx(clamp(Math.round(cx),0,G-1),clamp(Math.round(cy),0,G-1))];
+      height[i]=clamp(lerp(h, base+(h-base)*1.35, fall*.5),sea,peak);
+    }else if(tool==='dampen'){
+      const base=height[idx(clamp(Math.round(cx),0,G-1),clamp(Math.round(cy),0,G-1))];
+      height[i]=clamp(lerp(h, base+(h-base)*0.55, fall*.5),sea,peak);
+    }else if(tool==='lowland')height[i]=lerp(h,low,fall*.65);
+    else if(tool==='coast')height[i]=lerp(h,2.5,fall*.78);
+    else if(tool==='shelf')height[i]=lerp(h, lerp(sea*.2, 4, fall), fall*.7);
+    else if(tool==='river')height[i]=lerp(h,Math.min(0,h-str*.35),Math.pow(fall,2)*.75);
+    else if(tool==='channel'){
+      const across=Math.abs(-dy*ox+dx*oy)/r;
+      height[i]=clamp(h-str*Math.pow(1-across,3)*Math.pow(1-tt,1.2),sea,peak);
+    }else if(tool==='sea')height[i]=lerp(h,sea,fall*.82);
+    else if(tool==='smooth'){height[i]=lerp(h,temp[tk],fall*.6);tk++;}
+    else if(tool==='sharpen'){ const avg=temp[tk]; tk++; height[i]=clamp(h+(h-avg)*fall*(str/40),sea,peak); }
+    else if(tool==='polish'){ height[i]=lerp(h,temp[tk],fall*.85); tk++; }
+    else if(tool==='flatten'||tool==='plateau')height[i]=lerp(h, flattenTarget, Math.pow(1-tt,1.2)*.85);
+    else if(tool==='cliff'){
+      const across=(-dy*ox+dx*oy)/r;
+      const along=Math.abs(dx*ox+dy*oy);
+      const endcap=clamp(1-along/(r*1.2),0,1);
+      const step=smoothstep(-0.15,0.15,across);
+      height[i]=lerp(h, clamp(h+str*(step-.5)*2,sea,peak), Math.pow(1-tt,1.1)*endcap*.9);
+    }else if(tool==='wall'){
+      const across=Math.abs(-dy*ox+dx*oy)/r;
+      height[i]=clamp(h+str*Math.pow(1-across,3.2)*Math.pow(1-tt,1.1),sea,peak);
+    }else if(tool==='basin')height[i]=clamp(h-str*Math.pow(1-tt,1.5),sea,peak);
+    else if(tool==='berm'){
+      const ring=Math.exp(-Math.pow((tt-0.65)/0.18,2));
+      height[i]=clamp(h+str*ring*fall,sea,peak);
+    }else if(tool==='lake'){
+      const bowl=Math.pow(1-tt,1.4), water=low;
+      if(h>water){
+        const bed=lerp(h, water - str*.15*bowl, bowl*.9);
+        height[i]=clamp(Math.min(h, Math.max(water-str*.4, bed)), sea, peak);
+      }else height[i]=lerp(h, Math.min(h, water-1), bowl*.3);
+      if(tt<0.72) height[i]=lerp(height[i], Math.min(height[i], water), (1-tt/0.72)*.95);
+    }else if(tool==='ramp'){
+      const along=(dx*ox+dy*oy)/r;
+      height[i]=lerp(h, clamp(h+str*along*fall,sea,peak), fall*.75);
+    }else if(tool==='gorge'){
+      const across=Math.abs(-dy*ox+dx*oy)/r;
+      height[i]=clamp(h-str*Math.pow(1-across,4)*Math.pow(1-tt,1.2)*1.2,sea,peak);
+    }else if(tool==='saddle')height[i]=clamp(h-str*Math.pow(1-tt,2)*.8,sea,peak);
+    else if(tool==='notch'){
+      const across=Math.abs(-dy*ox+dx*oy)/r;
+      height[i]=clamp(h-str*Math.exp(-Math.pow(across/.12,2))*fall,sea,peak);
+    }else if(tool==='cove')height[i]=lerp(h, Math.min(h,1.5), Math.pow(1-tt,1.3)*.8);
+    else if(tool==='spit'){
+      const along=Math.abs(dx*ox+dy*oy)/r, across=Math.abs(-dy*ox+dx*oy)/r;
+      height[i]=clamp(h+str*Math.pow(1-along,1.5)*Math.pow(1-across,3)*.5, sea, Math.max(h,6));
+    }else if(tool==='delta'){
+      const fan=Math.pow(1-tt,1.2)*(0.6+0.4*Math.cos(Math.atan2(oy,ox)*3));
+      height[i]=lerp(h, Math.min(h,3+str*.1), fan*.7);
+    }else if(tool==='noise'){
+      const n=(typeof fbmAt2==='function'?fbmAt2(x,y,(terrainSeed|0)+70,4,.05):hashNoise(x,y,71))-.5;
+      height[i]=clamp(h+n*str*fall*1.4, sea, peak);
+    }else if(tool==='erode'){
+      let lowest=h;
+      for(let oy2=-1;oy2<=1;oy2++)for(let ox2=-1;ox2<=1;ox2++){
+        if(!ox2&&!oy2)continue;
+        const nx=x+ox2,ny=y+oy2; if(nx<0||ny<0||nx>=G||ny>=G)continue;
+        lowest=Math.min(lowest,height[idx(nx,ny)]);
+      }
+      const drop=h-lowest;
+      if(drop>0.3) height[i]=h-Math.min(drop*.35, str*.25)*fall;
+      else if(temp) height[i]=lerp(h,temp[tk],fall*.25);
+      tk++;
+    }else if(tool==='deposit')height[i]=clamp(h+str*fall*fall*.8,sea,peak);
+    else if(tool==='terrace'){
+      const step=Math.max(2, str*.35);
+      height[i]=lerp(h,clamp(Math.round(h/step)*step,sea,peak),fall*.7);
+    }else if(tool==='striate'){
+      const along=dx*ox+dy*oy;
+      height[i]=clamp(h+Math.sin(along*0.55)*str*.25*fall,sea,peak);
+    }else if(tool==='ripple')height[i]=clamp(h+Math.sin(d*0.9)*Math.cos(d*0.35)*str*.3*fall,sea,peak);
+    else if(tool==='scratch'){
+      const across=Math.abs(-dy*ox+dx*oy);
+      height[i]=clamp(h-Math.exp(-Math.pow(across/(r*0.05),2))*str*.4*fall,sea,peak);
+    }else if(tool==='crack'){
+      const across=Math.abs(-dy*ox+dx*oy);
+      height[i]=clamp(h-Math.exp(-Math.pow(across/(r*0.08),2))*str*.6*fall,sea,peak);
+    }else if(tool==='pockmark'){
+      const n=hashNoise(x*2,y*2,130);
+      if(n>0.72) height[i]=clamp(h-str*fall*(n-.72)*3,sea,peak);
+    }else if(tool==='pebble')height[i]=clamp(h+(hashNoise(x*3,y*3,140)-.5)*str*fall*.5,sea,peak);
+    else if(tool==='weather'){
+      const avg=temp[tk]; tk++;
+      height[i]=lerp(h, avg+(hashNoise(x,y,91)-.5)*str*.15, fall*.4);
+    }else if(tool==='grain'){
+      const n=(typeof fbmAt2==='function'?fbmAt2(x,y,88,3,.08):hashNoise(x,y,88))-.5;
+      height[i]=clamp(h+n*str*fall*.6,sea,peak);
+    }else if(tool==='fill')height[i]=lerp(h, low, fall*.9);
+    else if(tool==='stampVolcano'){
+      const cone=Math.pow(1-tt,1.35), crater=tt<0.18?smoothstep(0.18,0,tt)*str*.35:0;
+      height[i]=clamp(h+(str*1.1*cone-crater)*Math.pow(1-tt,0.6),sea,peak);
+    }else if(tool==='stampCrater'){
+      const rim=Math.exp(-Math.pow((tt-0.55)/0.18,2))*str*.9;
+      const hole=Math.pow(1-Math.min(1,tt/0.45),2)*str*.7;
+      height[i]=clamp(h+rim-hole*Math.pow(1-tt,0.5),sea,peak);
+    }else if(tool==='stampHill')height[i]=clamp(h+Math.pow(1-tt,2)*str,sea,peak);
+    else if(tool==='stampCone')height[i]=clamp(h+str*(1-tt),sea,peak);
+    else if(tool==='stampMesa'){
+      const top=tt<0.55?1:Math.pow(1-(tt-0.55)/0.45,1.5);
+      height[i]=clamp(h+str*top*0.9,sea,peak);
+    }else if(tool==='stampCaldera'){
+      const rim=Math.exp(-Math.pow((tt-0.5)/0.16,2))*str;
+      const floor=tt<0.4?str*.45:0;
+      height[i]=clamp(h+rim-floor*(1-tt/0.4),sea,peak);
+    }else if(tool==='stampRidge'){
+      const across=Math.abs(oy)/r;
+      height[i]=clamp(h+str*Math.pow(1-across,2.2)*Math.pow(1-tt,1.2),sea,peak);
+    }else if(tool==='stampSpire')height[i]=clamp(h+str*Math.pow(1-tt,3.5),sea,peak);
+    else if(tool==='stampPyramid'){
+      const m=1-Math.max(Math.abs(ox),Math.abs(oy))/r;
+      height[i]=clamp(h+str*Math.max(0,m),sea,peak);
+    }else if(tool==='stampBowl')height[i]=clamp(h-str*Math.pow(1-tt,1.5)*.9,sea,peak);
+    else if(tool==='stampArch'){
+      const left=Math.hypot(ox+r*.35,oy)/(r*.28), right=Math.hypot(ox-r*.35,oy)/(r*.28);
+      height[i]=clamp(h+str*Math.pow(Math.max(0,1-Math.min(left,right)),1.5)*fall,sea,peak);
+    }else if(tool==='stampAtoll'){
+      const ring=Math.exp(-Math.pow((tt-0.55)/0.14,2));
+      height[i]=clamp(h+str*ring*.7-(tt<0.4?str*.25*(1-tt/0.4):0),sea,peak);
+    }else if(tool==='stampTwin'){
+      const d1=Math.hypot(ox+r*.35,oy)/r, d2=Math.hypot(ox-r*.35,oy)/r;
+      height[i]=clamp(h+str*Math.max(Math.pow(Math.max(0,1-d1),2),Math.pow(Math.max(0,1-d2),2)),sea,peak);
+    }else if(tool==='stampDunes')height[i]=clamp(h+Math.sin(x*0.2+y*0.05)*str*.4*fall+str*fall*0.15,sea,peak);
+    else if(tool==='stampTor'){
+      const n=hashNoise(Math.floor(x/3),Math.floor(y/3),160);
+      if(n>0.55) height[i]=clamp(h+str*(n-.55)*2*Math.pow(1-tt,2),sea,peak);
+    }else if(tool==='stampRamp')height[i]=clamp(h+str*((ox/r)*.5+.5)*Math.pow(1-tt,1.2),sea,peak);
+    else if(temp) tk++;
+  }
+}
+
+function stampHeight(cx,cy,prev){
+  const pts=[[cx,cy]];
+  if(symMirrorX) pts.push([G-1-cx, cy]);
+  if(symMirrorY) pts.push([cx, G-1-cy]);
+  if(symMirrorX&&symMirrorY) pts.push([G-1-cx, G-1-cy]);
+  if(symRadial>=2){
+    const mx=G/2,my=G/2, ang0=Math.atan2(cy-my,cx-mx), rad=Math.hypot(cx-mx,cy-my);
+    for(let k=1;k<symRadial;k++){
+      const a=ang0+Math.PI*2*k/symRadial;
+      pts.push([mx+Math.cos(a)*rad, my+Math.sin(a)*rad]);
+    }
+  }
+  // unique pts
+  const seen={};
+  for(const p of pts){
+    const key=(p[0]|0)+','+(p[1]|0);
+    if(seen[key]) continue; seen[key]=1;
+    applyStampAt(p[0],p[1],prev);
+  }
+}
+function normalizeMaterialPixel(arr,o){
+  let r=Math.max(0,arr[o]),g=Math.max(0,arr[o+1]),b=Math.max(0,arr[o+2]);
+  const sum=r+g+b;
+  if(sum<=0){arr[o]=0;arr[o+1]=0;arr[o+2]=255;return;}
+  const scale=255/sum;
+  r=Math.round(r*scale);g=Math.round(g*scale);b=Math.round(b*scale);
+  const drift=255-(r+g+b);
+  if(r>=g&&r>=b)r+=drift;else if(g>=r&&g>=b)g+=drift;else b+=drift;
+  arr[o]=clamp(r,0,255);arr[o+1]=clamp(g,0,255);arr[o+2]=clamp(b,0,255);
+}
+
+function stampMask(cx,cy){
+  const r=+(mode==='trees'?$('pTreeRadius').value:$('pMaskRadius').value),minx=Math.max(0,Math.floor(cx-r)),maxx=Math.min(G-1,Math.ceil(cx+r));
+  const miny=Math.max(0,Math.floor(cy-r)),maxy=Math.min(G-1,Math.ceil(cy+r));
+  const sea=+$('pSea').value;
+  const landOnly=$('maskLandOnly')&&$('maskLandOnly').checked;
+  const seaOnly=$('maskSeaOnly')&&$('maskSeaOnly').checked;
+  const channel={r:0,g:1,b:2}[maskTool];
+
+  if(maskTool==='treeAdd'||maskTool==='treeBlock'||maskTool==='treeErase'){
+    for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+      const d=Math.hypot(x-cx,y-cy);if(d>r)continue;
+      const i=idx(x,y),h=height[i],o=i*3;
+      if(maskTool==='treeAdd'){
+        if(h<=sea+0.5)continue;
+        treeMask[i]=128; // force white / trees allowed
+      }else if(maskTool==='treeBlock'){
+        treeMask[i]=255; // force black / no trees
+      }else{
+        treeMask[i]=0;   // restore automatic forest result
+      }
+    }
+    return;
+  }
+
+  if(maskTool==='smooth'){
+    const copy=new Uint8ClampedArray(maskRGB);
+    for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+      const d=Math.hypot(x-cx,y-cy);if(d>r)continue;
+      const i=idx(x,y),h=height[i];
+      if(landOnly&&h<=sea+0.5)continue;
+      if(seaOnly&&h>sea+0.5)continue;
+      const f=Math.pow(1-d/r,1.5),o=i*3;
+      let sr=0,sg=0,sb=0,c=0;
+      for(let yy=Math.max(0,y-2);yy<=Math.min(G-1,y+2);yy++)
+        for(let xx=Math.max(0,x-2);xx<=Math.min(G-1,x+2);xx++){
+          const q=idx(xx,yy)*3;sr+=copy[q];sg+=copy[q+1];sb+=copy[q+2];c++;
+        }
+      maskRGB[o]=Math.round(lerp(copy[o],sr/c,f*.62));
+      maskRGB[o+1]=Math.round(lerp(copy[o+1],sg/c,f*.62));
+      maskRGB[o+2]=Math.round(lerp(copy[o+2],sb/c,f*.62));
+      normalizeMaterialPixel(maskRGB,o);
+      overrideA[i]=255;
+    }
+    return;
+  }
+
+  for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+    const d=Math.hypot(x-cx,y-cy);if(d>r)continue;
+    const i=idx(x,y),h=height[i],o=i*3;
+    if(landOnly&&h<=sea+0.5)continue;
+    if(seaOnly&&h>sea+0.5)continue;
+    if(maskTool==='erase'){
+      overrideA[i]=0;
+      maskRGB[o]=autoRGB[o];maskRGB[o+1]=autoRGB[o+1];maskRGB[o+2]=autoRGB[o+2];
+    }else if(channel!==undefined){
+      overrideA[i]=255;
+      const f=Math.pow(1-d/r,1.35);
+      const target=[0,0,0];target[channel]=255;
+      maskRGB[o]=Math.round(lerp(maskRGB[o],target[0],f));
+      maskRGB[o+1]=Math.round(lerp(maskRGB[o+1],target[1],f));
+      maskRGB[o+2]=Math.round(lerp(maskRGB[o+2],target[2],f));
+      normalizeMaterialPixel(maskRGB,o);
+    }
+  }
+}
+
+function pointerCanvasPos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*cv.width,y:(e.clientY-r.top)/r.height*cv.height};}
+function pointerPos(e){
+  const p=pointerCanvasPos(e),visible=G/mapZoom,left=G/2+mapPanX-visible/2,top=G/2+mapPanY-visible/2;
+  return {x:clamp(left+p.x/cv.width*visible,0,G-1),y:clamp(top+p.y/cv.height*visible,0,G-1)};
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  const panGesture=e.button===1||e.button===2||(e.button===0&&e.shiftKey);
+  if(panGesture){mapPanning=true;mapPanStart={x:e.clientX,y:e.clientY,px:mapPanX,py:mapPanY};cv.classList.add('panning');cv.setPointerCapture(e.pointerId);return;}
+  if(e.button!==0)return;
+snapshot();drawing=true;lastPt=pointerPos(e);cv.setPointerCapture(e.pointerId);if(mode==='height')stampHeight(lastPt.x,lastPt.y,null);else stampMask(lastPt.x,lastPt.y);render2d();
+});
+cv.addEventListener('pointermove',e=>{
+  if(mapPanning&&mapPanStart){
+    const r=cv.getBoundingClientRect(),visible=G/mapZoom;
+    mapPanX=mapPanStart.px-(e.clientX-mapPanStart.x)/r.width*visible;
+    mapPanY=mapPanStart.py-(e.clientY-mapPanStart.y)/r.height*visible;
+    clampMapPan();render2d();return;
+  }
+  const p=pointerPos(e);brushCursor.x=p.x;brushCursor.y=p.y;
+  if(drawing){
+    const activeRadius=mode==='trees'?+$('pTreeRadius').value:(mode==='mask'?+$('pMaskRadius').value:+$('pRadius').value);
+    const dist=Math.hypot(p.x-lastPt.x,p.y-lastPt.y),step=Math.max(1,activeRadius*.16),n=Math.max(1,Math.ceil(dist/step));
+    let prev=lastPt;
+    for(let k=1;k<=n;k++){const q={x:lerp(lastPt.x,p.x,k/n),y:lerp(lastPt.y,p.y,k/n)};if(mode==='height')stampHeight(q.x,q.y,prev);else stampMask(q.x,q.y);prev=q;}
+    lastPt=p;dirty3d=true;render2d();
+  }else render2d();
+});
+cv.addEventListener('pointerup',()=>{
+  if(mapPanning){mapPanning=false;mapPanStart=null;cv.classList.remove('panning');return;}
+  if(!drawing)return;drawing=false;lastPt=null;
+  if(mode==='height'&&$('autoMask').checked)generateAutoMask(false);
+  render2d();dirty3d=true;
+});
+cv.addEventListener('pointercancel',()=>{mapPanning=false;mapPanStart=null;drawing=false;cv.classList.remove('panning');});
+cv.addEventListener('pointerleave',()=>{brushCursor.x=-1;brushCursor.y=-1;if(!drawing&&!mapPanning)render2d();});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  // wheel = zoom toward cursor; Alt/Ctrl+wheel = brush radius
+  if(e.altKey||e.ctrlKey||e.metaKey){
+    const id=mode==='trees'?'pTreeRadius':(mode==='mask'?'pMaskRadius':'pRadius');
+    $(id).value=clamp(+$(id).value+(e.deltaY>0?-.5:.5),.5,110);
+    updateLabels();render2d();
+    return;
+  }
+  const p=pointerCanvasPos(e);
+  setMapZoom(mapZoom*(e.deltaY>0?.82:1.22),p);
+},{passive:false});
+$('zoomIn2d').onclick=()=>setMapZoom(mapZoom*1.5);
+$('zoomOut2d').onclick=()=>setMapZoom(mapZoom/1.5);
+
+function generateAutoMask(resetOverrides=true){
+  const sandLimit=+$('pSandLimit').value;
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i],o=i*3;
+    const l=height[idx(Math.max(0,x-1),y)],rgt=height[idx(Math.min(G-1,x+1),y)];
+    const dn=height[idx(x,Math.max(0,y-1))],up=height[idx(x,Math.min(G-1,y+1))];
+    const slope=Math.hypot(rgt-l,up-dn);
+    let r=0,g=0,b=0;
+    if(h<=sandLimit){
+      g=255; // detail 1: seabed, beach and sediment
+    }else if(slope>8){
+      r=255; // detail 0: exposed rock on steep slopes
+    }else{
+      b=255; // detail 2: vegetation on stable land
+    }
+    autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
+    if(resetOverrides){
+      maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;
+    }else if(!overrideA[i]){
+      maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;
+    }
+  }
+}
+
+$('regenMask').onclick=()=>{snapshot();generateAutoMask(true);render2d();$('status').textContent='automatic mask regenerated';updateUndoButtons();};
+function generateSlopeAutoMask(){
+  snapshot();
+  const peak=+$('pPeak').value, sandLimit=+$('pSandLimit').value;
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i],o=i*3;
+    const l=height[idx(Math.max(0,x-1),y)],rgt=height[idx(Math.min(G-1,x+1),y)];
+    const dn=height[idx(x,Math.max(0,y-1))],up=height[idx(x,Math.min(G-1,y+1))];
+    const slope=Math.hypot(rgt-l,up-dn);
+    let r=0,g=0,b=0;
+    if(h<=sandLimit){
+      g=255;
+    }else if(slope>8 || h>peak*.72){
+      r=255;
+    }else if(h<sandLimit+14){
+      g=210;b=45; // soft transition from sediment to vegetation
+    }else{
+      b=255;
+    }
+    autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
+    maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;
+  }
+  render2d();updateUndoButtons();
+  if($('status'))$('status').textContent='Substrata material mask rebuilt by height and slope';
+}
+if($('slopeAuto'))$('slopeAuto').onclick=generateSlopeAutoMask;
+
+$('maskLandOnly')?.addEventListener('change',()=>{if($('maskLandOnly').checked)$('maskSeaOnly').checked=false;});
+$('maskSeaOnly')?.addEventListener('change',()=>{if($('maskSeaOnly').checked)$('maskLandOnly').checked=false;});
+$('pSandLimit').addEventListener('input',()=>{updateLabels();generateAutoMask(false);render2d();});
+$('showTreeOverlay').addEventListener('change',render2d);
+$('treePreviewMode')?.addEventListener('change',render2d);
+['pTreeRadius','pTreeDensity','pTreePatch'].forEach(id=>$(id)?.addEventListener('input',render2d));
+$('treeGenerateAuto')?.addEventListener('click',()=>{regenerateAutomaticForest(true);show2d('trees');});
+$('treeResetAuto')?.addEventListener('click',()=>{snapshot();treeMask.fill(0);show2d('trees');updateUndoButtons();$('status').textContent='manual tree edits cleared';});
+$('maskPreviewMode').addEventListener('change',render2d);
+$('pMaskOpacity').addEventListener('input',render2d);
+$('showContours').addEventListener('change',render2d);
+
+function heightColor(h){
+  const sea=+$('pSea').value,peak=+$('pPeak').value;
+  if(h<0){const t=smoothstep(sea,0,h);return [lerp(12,48,t),lerp(45,126,t),lerp(75,165,t)];}
+  if(h<5){const t=h/5;return [lerp(90,221,t),lerp(165,199,t),lerp(184,139,t)];}
+  if(h<45){const t=(h-5)/40;return [lerp(57,89,t),lerp(123,137,t),lerp(52,70,t)];}
+  const t=smoothstep(45,peak,h);return [lerp(89,218,t),lerp(137,218,t),lerp(70,211,t)];
+}
+function reliefPixel(i){
+  const x=i%G,y=(i/G)|0,c=heightColor(height[i]);
+  const l=height[idx(Math.max(0,x-1),y)],r=height[idx(Math.min(G-1,x+1),y)];
+  const down=height[idx(x,Math.max(0,y-1))],up=height[idx(x,Math.min(G-1,y+1))];
+  const gx=r-l,gy=up-down;
+  const shade=clamp(.88+(-gx-gy)*.018,.42,1.22);
+  return [
+    clamp(c[0]*shade,0,255),
+    clamp(c[1]*shade,0,255),
+    clamp(c[2]*shade,0,255)
+  ];
+}
+function isContourPixel(i,interval=20){
+  const x=i%G,y=(i/G)|0,h=height[i];
+  if(x>=G-1||y>=G-1)return false;
+  const band=Math.floor(h/interval);
+  return Math.floor(height[i+1]/interval)!==band||Math.floor(height[i+G]/interval)!==band;
+}
+function terrainSlopeAt(x,y){
+  const l=height[idx(Math.max(0,x-1),y)],r=height[idx(Math.min(G-1,x+1),y)];
+  const d=height[idx(x,Math.max(0,y-1))],u=height[idx(x,Math.min(G-1,y+1))];
+  return Math.hypot(r-l,u-d);
+}
+function buildAutomaticForestMask(){
+  const out=new Uint8ClampedArray(G*G);
+  const sea=+$('pSea').value;
+  const sandLimit=+$('pSandLimit').value;
+  const density=(+$('pTreeDensity').value)/100;
+  const patch=(+$('pTreePatch').value)/100;
+  const threshold=lerp(.78,.34,density);
+  const baseFreq=lerp(.0045,.018,1-patch);
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i],o=i*3;
+    if(h<=Math.max(sea+1,sandLimit+1))continue;
+    const slope=terrainSlopeAt(x,y);
+    if(slope>8.5)continue;
+    const fs=(forestSeed|0);
+    const large=fbmAt2(x,y,fs+501,5,baseFreq);
+    const medium=fbmAt2(x+83,y-47,fs+777,4,baseFreq*2.8);
+    const breakup=fbmAt2(x-29,y+61,fs+911,3,.055);
+    const altitudeFade=1-smoothstep(Math.max(80,(+$('pPeak').value)*.58),Math.max(150,(+$('pPeak').value)*.94),h);
+    const suitability=(large*.58+medium*.30+breakup*.12)*altitudeFade;
+    if(suitability>threshold)out[i]=255;
+  }
+  return out;
+}
+function applyForestToMaterialMask(){
+  const sandLimit=+$('pSandLimit').value;
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),h=height[i],o=i*3;
+    if(overrideA[i])continue; // preserve manual material painting / ADD trees
+    const slope=terrainSlopeAt(x,y);
+    let r=0,g=0,b=0;
+    if(h<=sandLimit){g=255;}
+    else if(slope>8.5){r=255;}
+    else if(treeAutoMask[i]>127){b=255;}
+    else{r=0;g=0;b=0;} // detail 3: open grass without trees
+    autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
+    maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;
+  }
+}
+function regenerateAutomaticForest(withSnapshot=true){
+  if(withSnapshot)snapshot();
+  // Every click creates a genuinely new forest layout instead of recalculating the same deterministic mask.
+  forestSeed=((Date.now() ^ Math.floor(Math.random()*0x7fffffff)) >>> 0) || ((forestSeed+1)>>>0);
+  treeAutoMask=buildAutomaticForestMask();
+  render2d();updateUndoButtons();
+  if($('status'))$('status').textContent='tree mask regenerated';
+  return treeAutoMask;
+}
+function treeAllowedAt(i,x,y){
+  const manual=treeMask[i];
+  if(manual===255)return false;
+  if(manual===128)return height[i]>+$('pSea').value+0.5;
+  return treeAutoMask[i]>127;
+}
+
+function render2d(){
+  const d=display.data;
+  const previewMode=mode==='mask' ? $('maskPreviewMode').value : 'terrain';
+  const maskAlpha=+$('pMaskOpacity').value/100;
+  const contours=mode==='mask'&&$('showContours').checked&&previewMode!=='mask';
+
+  for(let i=0;i<G*G;i++){
+    const o=i*4;
+    const relief=reliefPixel(i);
+
+    if(mode==='trees'){
+      const x=i%G,y=(i/G)|0,allowed=treeAllowedAt(i,x,y),manual=treeMask[i];
+      const v=allowed?255:0;
+      d[o]=d[o+1]=d[o+2]=v;
+    }else if(mode==='mask'){
+      const mr=maskRGB[i*3],mg=maskRGB[i*3+1],mb=maskRGB[i*3+2];
+
+      if(previewMode==='mask'){
+        d[o]=mr;d[o+1]=mg;d[o+2]=mb;
+      }else if(previewMode==='terrain'){
+        d[o]=relief[0];d[o+1]=relief[1];d[o+2]=relief[2];
+      }else{
+        d[o]=Math.round(lerp(relief[0],mr,maskAlpha));
+        d[o+1]=Math.round(lerp(relief[1],mg,maskAlpha));
+        d[o+2]=Math.round(lerp(relief[2],mb,maskAlpha));
+      }
+
+      if(contours&&isContourPixel(i)){
+        d[o]=Math.round(d[o]*.55);
+        d[o+1]=Math.round(d[o+1]*.55);
+        d[o+2]=Math.round(d[o+2]*.55);
+      }
+
+    }else{
+      d[o]=relief[0];d[o+1]=relief[1];d[o+2]=relief[2];
+    }
+
+    d[o+3]=255;
+  }
+
+  const tmp=document.createElement('canvas');
+  tmp.width=tmp.height=G;
+  const tctx=tmp.getContext('2d');
+  tctx.putImageData(display,0,0);
+  // 2× supersampled intermediate for smoother coasts/slopes on screen (data stays G²)
+  const hi=document.createElement('canvas');
+  hi.width=hi.height=G*2;
+  const hctx=hi.getContext('2d');
+  hctx.imageSmoothingEnabled=true;
+  hctx.drawImage(tmp,0,0,G*2,G*2);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.imageSmoothingEnabled=true;
+  const visible=G/mapZoom,left=clamp(G/2+mapPanX-visible/2,0,G-visible),top=clamp(G/2+mapPanY-visible/2,0,G-visible);
+  ctx.drawImage(hi,left*2,top*2,visible*2,visible*2,0,0,cv.width,cv.height);
+
+  if(brushCursor.x>=0){
+    const sx=cv.width/visible,sy=cv.height/visible;
+    const r=+(mode==='trees'?$('pTreeRadius').value:(mode==='mask'?$('pMaskRadius').value:$('pRadius').value));
+    ctx.beginPath();
+    ctx.arc((brushCursor.x-left)*sx,(brushCursor.y-top)*sy,r*sx,0,Math.PI*2);
+    ctx.strokeStyle='#d4a017';
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+  }
+}
+
+// ---------- 3D preview ----------
+let threeReady=false, r3, s3, c3, mesh3, geo3, mat3, sun;
+let theta=-.75,phi=.82,dist=620,target=null,drag3=null;
+function cam3(){ if(!threeReady||!c3||!target) return; c3.position.set(target.x+dist*Math.sin(phi)*Math.cos(theta),target.y+dist*Math.cos(phi),target.z+dist*Math.sin(phi)*Math.sin(theta));c3.lookAt(target); }
+function update3d(){
+  if(!threeReady||!dirty3d||!geo3)return; dirty3d=false;
+  try{
+    const p=geo3.attributes.position.array,col=geo3.attributes.color.array;
+    const world=worldSize||8192,heightScale=+$('pHeightScale').value/100;
+    const displayWidth=520;
+    const verticalFactor=(displayWidth/world)*heightScale;
+    for(let y=0;y<PRE;y++)for(let x=0;x<PRE;x++){
+      const gx=Math.round(x/(PRE-1)*(G-1)),gy=Math.round(y/(PRE-1)*(G-1)),i=idx(gx,gy),vi=(y*PRE+x);
+      p[vi*3+1]=height[i]*verticalFactor;
+      const c=heightColor(height[i]);col[vi*3]=c[0]/255;col[vi*3+1]=c[1]/255;col[vi*3+2]=c[2]/255;
+    }
+    geo3.attributes.position.needsUpdate=true;geo3.attributes.color.needsUpdate=true;geo3.computeVertexNormals();
+  }catch(e){}
+}
+function resize3d(){ if(!threeReady||!r3||!c3)return; try{const can=$('preview3d'),w=can.clientWidth,h=can.clientHeight;r3.setSize(w,h,false);c3.aspect=w/h;c3.updateProjectionMatrix();}catch(e){} }
+function resetScaleView(){ theta=-.75;phi=.82;dist=620; if(target) target.set(0,15,0); cam3(); }
+try{
+  if(typeof THREE!=='undefined'){
+    r3=new THREE.WebGLRenderer({canvas:$('preview3d'),antialias:true});
+    r3.setPixelRatio(Math.min(devicePixelRatio,2));
+    s3=new THREE.Scene();s3.background=new THREE.Color(0x0b0d10);
+    c3=new THREE.PerspectiveCamera(48,1,.1,5000);
+    target=new THREE.Vector3(0,15,0);
+    cam3();s3.add(new THREE.HemisphereLight(0xb9c7dd,0x27221b,1.25));
+    sun=new THREE.DirectionalLight(0xffe4bd,1.7);sun.position.set(250,500,180);s3.add(sun);
+    geo3=new THREE.PlaneGeometry(520,520,PRE-1,PRE-1);geo3.rotateX(-Math.PI/2);
+    geo3.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(PRE*PRE*3),3));
+    mat3=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:0,side:THREE.DoubleSide});
+    mesh3=new THREE.Mesh(geo3,mat3);s3.add(mesh3);
+    threeReady=true;
+    new ResizeObserver(resize3d).observe($('preview3d'));
+    $('preview3d').addEventListener('contextmenu',e=>e.preventDefault());
+    $('preview3d').addEventListener('pointerdown',e=>{drag3={x:e.clientX,y:e.clientY,t:theta,p:phi,target:target.clone(),b:e.button};$('preview3d').setPointerCapture(e.pointerId);});
+    $('preview3d').addEventListener('pointermove',e=>{if(!drag3||!c3)return;const dx=e.clientX-drag3.x,dy=e.clientY-drag3.y;if(drag3.b===0){theta=drag3.t+dx*.006;phi=clamp(drag3.p-dy*.006,.12,1.48);}else{const right=new THREE.Vector3().setFromMatrixColumn(c3.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(c3.matrix,1);target.copy(drag3.target).addScaledVector(right,-dx*.35).addScaledVector(up,dy*.35);}cam3();});
+    $('preview3d').addEventListener('pointerup',()=>drag3=null);
+    $('preview3d').addEventListener('wheel',e=>{e.preventDefault();dist=clamp(dist*(1+e.deltaY*.001),180,1700);cam3();},{passive:false});
+  }
+}catch(err){ console.warn('3D preview unavailable', err); threeReady=false; }
+if($('resetView'))$('resetView').onclick=()=>{if(mode==='3d')resetScaleView();else resetMapView();};
+updateZoomReadout();
+
+// ---------- resampling/export ----------
+function bilinearField(src,w,h,x,y,channels=1){
+  x=clamp(x,0,w-1);y=clamp(y,0,h-1);const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;
+  const out=[];
+  for(let c=0;c<channels;c++){const a=src[(y0*w+x0)*channels+c],b=src[(y0*w+x1)*channels+c],d=src[(y1*w+x0)*channels+c],e=src[(y1*w+x1)*channels+c];out[c]=lerp(lerp(a,b,tx),lerp(d,e,tx),ty);}
+  return out;
+}
+function resampleHeight(){
+  const out=new Float32Array(OUT*OUT);
+  for(let y=0;y<OUT;y++)for(let x=0;x<OUT;x++)out[y*OUT+x]=bilinearField(height,G,G,x/(OUT-1)*(G-1),y/(OUT-1)*(G-1))[0];
+  return out;
+}
+function writeEXR(hf,flip){
+  const N=OUT,enc=new TextEncoder();
+  function attr(name,type,data){const n=enc.encode(name),t=enc.encode(type),buf=new Uint8Array(n.length+1+t.length+1+4+data.length);let o=0;buf.set(n,o);o+=n.length;buf[o++]=0;buf.set(t,o);o+=t.length;buf[o++]=0;new DataView(buf.buffer).setUint32(o,data.length,true);o+=4;buf.set(data,o);return buf;}
+  const ch=new Uint8Array(19);ch[0]=89;const cv=new DataView(ch.buffer);cv.setUint32(2,2,true);cv.setUint32(10,1,true);cv.setUint32(14,1,true);
+  const box=new Uint8Array(16),bv=new DataView(box.buffer);bv.setInt32(8,N-1,true);bv.setInt32(12,N-1,true);
+  const f1=new Uint8Array(4);new DataView(f1.buffer).setFloat32(0,1,true);
+  const parts=[new Uint8Array([0x76,0x2f,0x31,0x01,2,0,0,0]),attr('channels','chlist',ch),attr('compression','compression',new Uint8Array([0])),attr('dataWindow','box2i',box),attr('displayWindow','box2i',box),attr('lineOrder','lineOrder',new Uint8Array([0])),attr('pixelAspectRatio','float',f1),attr('screenWindowCenter','v2f',new Uint8Array(8)),attr('screenWindowWidth','float',f1),new Uint8Array([0])];
+  const header=parts.reduce((s,p)=>s+p.length,0),table=N*8,line=8+N*4,total=header+table+N*line,out=new Uint8Array(total),dv=new DataView(out.buffer);let o=0;parts.forEach(p=>{out.set(p,o);o+=p.length;});
+  let off=header+table;for(let y=0;y<N;y++){dv.setUint32(o,off,true);dv.setUint32(o+4,0,true);o+=8;off+=line;}
+  for(let y=0;y<N;y++){const sy=flip?N-1-y:y;dv.setInt32(o,y,true);o+=4;dv.setInt32(o,N*4,true);o+=4;for(let x=0;x<N;x++){dv.setFloat32(o,hf[sy*N+x],true);o+=4;}}
+  return out;
+}
+function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+
+function buildMaterialMaskCanvas(){
+  const small=document.createElement('canvas');small.width=small.height=G;
+  const sg=small.getContext('2d'),im=sg.createImageData(G,G);
+  for(let i=0;i<G*G;i++){
+    const o=i*4;im.data[o]=maskRGB[i*3];im.data[o+1]=maskRGB[i*3+1];im.data[o+2]=maskRGB[i*3+2];im.data[o+3]=255;
+  }
+  sg.putImageData(im,0,0);
+  const big=document.createElement('canvas');big.width=big.height=OUT;
+  const bg=big.getContext('2d');bg.imageSmoothingEnabled=true;
+  if($('flipY').checked){bg.translate(0,OUT);bg.scale(1,-1);}
+  bg.drawImage(small,0,0,OUT,OUT);
+  return big;
+}
+function buildTreeMaskCanvas(){
+  const small=document.createElement('canvas');small.width=small.height=G;
+  const sg=small.getContext('2d'),im=sg.createImageData(G,G);
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const i=idx(x,y),v=treeAllowedAt(i,x,y)?255:0,o=i*4;
+    im.data[o]=v;im.data[o+1]=v;im.data[o+2]=v;im.data[o+3]=255;
+  }
+  sg.putImageData(im,0,0);
+  const out=document.createElement('canvas');out.width=out.height=OUT;
+  const g=out.getContext('2d');g.imageSmoothingEnabled=false;
+  if($('flipY').checked){g.translate(0,OUT);g.scale(1,-1);}
+  g.drawImage(small,0,0,OUT,OUT);
+  return out;
+}
+
+function buildHeightPreviewCanvas(){
+  const small=document.createElement('canvas');small.width=small.height=G;
+  const sg=small.getContext('2d'),im=sg.createImageData(G,G),sea=+$('pSea').value,peak=+$('pPeak').value;
+  for(let i=0;i<G*G;i++){
+    const v=clamp((height[i]-sea)/(peak-sea),0,1)*255,o=i*4;
+    im.data[o]=im.data[o+1]=im.data[o+2]=v;im.data[o+3]=255;
+  }
+  sg.putImageData(im,0,0);
+  const out=document.createElement('canvas');out.width=out.height=OUT;
+  const og=out.getContext('2d');og.imageSmoothingEnabled=true;
+  if($('flipY').checked){og.translate(0,OUT);og.scale(1,-1);}
+  og.drawImage(small,0,0,OUT,OUT);
+  return out;
+}
+function canvasBlob(canvas,type='image/png',quality){
+  return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('canvas export failed')),type,quality));
+}
+function projectData(){
+  return {format:'TERRA GEN SCULPT',version:2,grid:G,settings:{sea:+$('pSea').value,land:+$('pLand').value,peak:+$('pPeak').value,seed:terrainSeed,baseTemplate,islandKind,world:worldSize||8192,grid:G,exportSize:OUT,heightScale:+$('pHeightScale').value,maskPreview:$('maskPreviewMode').value,maskOpacity:+$('pMaskOpacity').value,showContours:!!$('showContours').checked,materialChannels:{r:'rock/detail 0',g:'sediment/detail 1',b:'vegetation/detail 2'},treeSettings:{radius:+$('pTreeRadius').value,density:+$('pTreeDensity').value,patch:+$('pTreePatch').value,seed:forestSeed}},height:arrayToB64(height),mask:arrayToB64(maskRGB),override:arrayToB64(overrideA),treeMask:arrayToB64(treeMask),treeAutoMask:arrayToB64(treeAutoMask)};
+}
+$('exportEXR').onclick=()=>{
+  $('status').textContent='resampling '+OUT+'² heightfield…';
+  setTimeout(()=>{
+    const hf=resampleHeight();
+    const bytes=writeEXR(hf,$('flipY').checked);
+    download('terra_gen_height.exr',new Blob([bytes],{type:'image/x-exr'}));
+    let mn=Infinity,mx=-Infinity;for(const v of hf){mn=Math.min(mn,v);mx=Math.max(mx,v);}
+    $('status').textContent=`EXR exported · ${mn.toFixed(1)} to ${mx.toFixed(1)} m · ${worldSize||8192} m terrain · use ${(+$('pHeightScale').value||800)/100}× height scale in Substrata`;
+  },20);
+};
+async function exportCanvasFile(canvas,filename,statusText){
+  try{
+    const blob=await canvasBlob(canvas,'image/png');
+    download(filename,blob);
+    if(statusText)$('status').textContent=statusText;
+  }catch(err){
+    console.error(err);
+    $('status').textContent='export failed · '+err.message;
+  }
+}
+$('exportMask').onclick=()=>exportCanvasFile(
+  buildMaterialMaskCanvas(),
+  'terra_gen_material_mask.png',
+  'material mask exported · normalized RGB · R rock · G sediment · B vegetation'
+);
+
+$('exportTrees').onclick=()=>exportCanvasFile(
+  buildTreeMaskCanvas(),
+  'terra_gen_tree_mask.png',
+  'tree mask exported · white trees · black no trees'
+);
+
+$('exportHeightPNG').onclick=()=>exportCanvasFile(
+  buildHeightPreviewCanvas(),
+  'terra_gen_height_preview.png',
+  'height preview exported'
+);
+function arrayToB64(arr){const bytes=new Uint8Array(arr.buffer),chunk=0x8000;let s='';for(let i=0;i<bytes.length;i+=chunk)s+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(s);}
+function b64ToArray(s,Type){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Type(u.buffer);}
+$('saveProject').onclick=()=>{
+  download('terra_gen_project.json',new Blob([JSON.stringify(projectData())],{type:'application/json'}));
+};
+
+$('exportBundle').onclick=async()=>{
+  if(typeof JSZip==='undefined'){
+    $('status').textContent='ZIP library unavailable';return;
+  }
+  const btn=$('exportBundle');btn.disabled=true;
+  $('status').textContent='building ZIP package…';
+  try{
+    const zip=new JSZip();
+    const hf=resampleHeight();
+    zip.file('terra_gen_height.exr',writeEXR(hf,$('flipY').checked));
+    zip.file('terra_gen_material_mask.png',await canvasBlob(buildMaterialMaskCanvas()));
+    zip.file('terra_gen_tree_mask.png',await canvasBlob(buildTreeMaskCanvas()));
+    zip.file('terra_gen_height_preview.png',await canvasBlob(buildHeightPreviewCanvas()));
+    zip.file('terra_gen_project.json',JSON.stringify(projectData()));
+    zip.file('README.txt',[
+      'TERRA GEN → METASIBERIA EXPORT','',
+      'terra_gen_height.exr → URL карты высот',
+      'terra_gen_material_mask.png → URL карты маски',
+      'terra_gen_tree_mask.png → URL карты маски деревьев','',
+      'Material mask channels (normalized RGB weights):',
+      'R = detail 0 = rock / камень',
+      'G = detail 1 = sediment, sand, soil / осадок, песок, грунт',
+      'B = detail 2 = vegetation / растительность','',
+      'Tree mask:',
+      'WHITE = trees allowed / деревья разрешены',
+      'BLACK = no trees / деревья запрещены',
+      'PNG is fully opaque; alpha is not used.',
+      'Water is controlled by terrain height and water level, not the material mask.',
+      'Orientation flip: '+($('flipY').checked?'enabled':'disabled'),
+      'World size: '+worldSize+' m',
+      'Heightmap, material mask and tree mask: '+OUT+' × '+OUT+' px'
+    ].join('\n'));
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    download('terra_gen_export.zip',blob);
+    $('status').textContent='ZIP exported · EXR + materials + trees + preview + project + README';
+  }catch(err){
+    console.error(err);$('status').textContent='ZIP export failed · '+err.message;
+  }finally{btn.disabled=false;}
+};
+$('loadProject').onclick=()=>$('projectFile').click();
+$('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const d=JSON.parse(t);if(!['TERRA GEN SCULPT','TERRA/FORGE SCULPT'].includes(d.format))throw Error('incompatible project'); if(d.grid&&d.grid!==G){ if($('pResolution'))$('pResolution').value=String(d.grid); G=d.grid; height=new Float32Array(G*G); autoRGB=new Uint8ClampedArray(G*G*3); maskRGB=new Uint8ClampedArray(G*G*3); overrideA=new Uint8ClampedArray(G*G); treeMask=new Uint8ClampedArray(G*G); treeAutoMask=new Uint8ClampedArray(G*G); display=ctx.createImageData(G,G); }snapshot();height=b64ToArray(d.height,Float32Array);maskRGB=b64ToArray(d.mask,Uint8ClampedArray);overrideA=b64ToArray(d.override,Uint8ClampedArray);treeMask=d.treeMask?normalizeTreeMask(b64ToArray(d.treeMask,Uint8ClampedArray)):new Uint8ClampedArray(G*G);treeAutoMask=d.treeAutoMask?b64ToArray(d.treeAutoMask,Uint8ClampedArray):buildAutomaticForestMask();$('pSea').value=d.settings.sea;$('pLand').value=d.settings.land;$('pPeak').value=d.settings.peak;
+  if(Number.isFinite(d.settings.seed)){terrainSeed=d.settings.seed;$('pSeed').value=terrainSeed;}
+  if(d.settings.baseTemplate){baseTemplate=d.settings.baseTemplate;document.querySelectorAll('[data-template]').forEach(b=>b.classList.toggle('primary',b.dataset.template===baseTemplate));}
+  if(d.settings.islandKind) setIslandKind(d.settings.islandKind, false);
+
+  if(Number.isFinite(d.settings.world)){worldSize=d.settings.world;if($('pWorldSize'))$('pWorldSize').value=String(worldSize);}
+  if(Number.isFinite(d.settings.exportSize)){OUT=d.settings.exportSize;if($('pExportSize'))$('pExportSize').value=String(OUT);}
+  if(d.settings.heightScale)$('pHeightScale').value=d.settings.heightScale;else if(d.settings.previewScale)$('pHeightScale').value=Math.max(100,d.settings.previewScale);
+  if(d.settings.maskPreview)$('maskPreviewMode').value=d.settings.maskPreview;
+  if(Number.isFinite(d.settings.maskOpacity))$('pMaskOpacity').value=d.settings.maskOpacity;
+  if(typeof d.settings.showContours==='boolean')$('showContours').checked=d.settings.showContours;
+  if(d.settings.treeSettings){
+    if(Number.isFinite(d.settings.treeSettings.radius))$('pTreeRadius').value=d.settings.treeSettings.radius;
+    if(Number.isFinite(d.settings.treeSettings.density))$('pTreeDensity').value=d.settings.treeSettings.density;
+    if(Number.isFinite(d.settings.treeSettings.patch))$('pTreePatch').value=d.settings.treeSettings.patch;
+    if(Number.isFinite(d.settings.treeSettings.seed))forestSeed=(d.settings.treeSettings.seed>>>0)||104729;
+  }
+  updateLabels();generateAutoMask(false);dirty3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
+
+
+
+const TOOL_TIPS={
+  mountain:'Хребет вдоль движения кисти. Острота — слайдер sharpness.',
+  raise:'Поднять рельеф под кистью.',
+  lower:'Опустить рельеф под кистью.',
+  softRaise:'Мягкий подъём, сильный falloff к краям.',
+  hardRaise:'Жёсткий подъём, почти плоская «таблетка».',
+  softLower:'Мягкое опускание.',
+  hardLower:'Жёсткое опускание.',
+  pinch:'Тянет высоты к центру кисти.',
+  inflate:'Купол из центра кисти.',
+  deflate:'Обратный купол — вдавить центр.',
+  clay:'Нарастить массу как глиной.',
+  blob:'Мягкий сгусток (гаусс).',
+  amplify:'Усилить перепады относительно центра.',
+  dampen:'Ослабить перепады относительно центра.',
+  smooth:'Сгладить резкие перепады.',
+  polish:'Сильное сглаживание.',
+  sharpen:'Заострить детали (unsharp).',
+  flatten:'Плато по средней высоте под кистью.',
+  plateau:'Плато на target height.',
+  ramp:'Уклон вдоль направления штриха.',
+  cliff:'Обрыв поперёк штриха. Сила = высота уступа.',
+  wall:'Узкая стена-хребет вдоль штриха.',
+  basin:'Чаша / котловина.',
+  gorge:'Глубокое узкое ущелье вдоль штриха.',
+  berm:'Кольцевой вал у края кисти.',
+  saddle:'Седловина — понижение центра.',
+  notch:'Узкий вырез поперёк штриха.',
+  lake:'Озеро: чаша + уровень воды = target height.',
+  fill:'Залить всё под кистью к target height.',
+  lowland:'Смешать к target height мягко.',
+  coast:'Пляж ~2.5 m.',
+  shelf:'Прибрежный шельф.',
+  cove:'Бухта — сгладить к низкой воде.',
+  spit:'Узкая коса вдоль штриха.',
+  river:'Река/долина к уровню моря.',
+  channel:'Канал вдоль штриха.',
+  delta:'Веер дельты.',
+  sea:'Увести в море (sea floor).',
+  noise:'Крупный природный шум.',
+  erode:'Эрозия — осыпание вниз по склону.',
+  deposit:'Нанос материала.',
+  terrace:'Ступени/террасы.',
+  striate:'Штрихи вдоль штриха.',
+  ripple:'Волнистая рябь.',
+  scratch:'Тонкая царапина поперёк.',
+  crack:'Трещина вдоль направления.',
+  pockmark:'Точечные выбоины.',
+  pebble:'Мелкая «галька».',
+  weather:'Выветривание + лёгкий шум.',
+  grain:'Мелкое зерно поверхности.',
+  stampVolcano:'Штамп вулкана с кратером.',
+  stampCrater:'Штамп ударного кратера.',
+  stampHill:'Мягкий холм.',
+  stampCone:'Конус.',
+  stampMesa:'Столовая гора.',
+  stampCaldera:'Кальдера.',
+  stampRidge:'Гряда-штамп.',
+  stampSpire:'Острый шпиль.',
+  stampPyramid:'Пирамида.',
+  stampBowl:'Чаша-штамп.',
+  stampArch:'Две опоры / арка.',
+  stampAtoll:'Кольцо атолла.',
+  stampTwin:'Два холма рядом.',
+  stampDunes:'Дюны.',
+  stampTor:'Скальные торы.',
+  stampRamp:'Пандус-штамп.'
+};
+function updateToolTip(name){
+  const el=$('heightToolHelp');
+  if(!el) return;
+  el.textContent=TOOL_TIPS[name]||'';
+  el.classList.add('tool-tip-box');
+}
+function updateMapSizeInfo(){
+  const m=worldSize||8192, g=G, out=OUT;
+  const cell=(m/g).toFixed(1);
+  const ru=(store.getItem('terra-gen-lang')||'en')==='ru';
+  const el=$('mapSizeInfo');
+  if(el) el.textContent=ru
+    ? ('Квадрат карты = весь мир: '+m+' × '+m+' m · сетка '+g+'×'+g+' · экспорт '+out+'×'+out+' px · ~'+cell+' m/клетка')
+    : ('Map square = full world: '+m+' × '+m+' m · grid '+g+'×'+g+' · export '+out+'×'+out+' px · ~'+cell+' m/cell');
+  const h3=$('hud3dWorld'); if(h3) h3.textContent=String(m);
+  const ft=$('footerSize');
+  if(ft) ft.textContent=g+'² sculpt → '+out+'² export · '+m+' m world';
+  // scale 3D plane so larger worlds read slightly larger in preview
+  if(typeof mesh3!=='undefined' && mesh3){
+    const s=m/8192;
+    mesh3.scale.set(s,1,s);
+    dirty3d=true;
+  }
+}
+
+function toolTitle(name){
+  const btn=document.querySelector('#heightTools [data-tool="'+name+'"]');
+  return (btn&&btn.textContent.trim())||name;
+}
+function updateSculptCurrent(name){
+  const el=$('sculptCurrent');
+  if(el) el.textContent='ACTIVE · '+toolTitle(name);
+  updateToolTip(name);
+  const btn=document.querySelector('#heightTools [data-tool="'+name+'"]');
+  const panel=btn&&btn.closest('details.tool-menu');
+  if(panel) panel.open=true;
+}
+function selectTool(name){
+  const btn=document.querySelector('#heightTools [data-tool="'+name+'"]');
+  if(!btn) return;
+  tool=name;
+  document.querySelectorAll('#heightTools [data-tool]').forEach(x=>x.classList.toggle('on',x===btn));
+  updateSculptCurrent(name);
+  mode='height'; if(typeof show2d==='function') show2d('height');
+  if(typeof syncTerrainContext==='function') syncTerrainContext();
+  else setTimeout(()=>{ try{syncTerrainContext()}catch(e){} },0);
+  if($('status'))$('status').textContent='tool · '+name;
+}
+const TOOL_HOTKEYS={'1':'mountain','2':'raise','3':'lower','4':'flatten','5':'cliff','6':'lake','7':'noise','8':'erode','9':'fill','0':'smooth'};
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  const editing=e.target.isContentEditable||tag==='input'||tag==='textarea'||tag==='select';
+  if(editing) return;
+  if(e.key in TOOL_HOTKEYS){ e.preventDefault(); selectTool(TOOL_HOTKEYS[e.key]); return; }
+  if(e.key==='[' || e.key===']'){
+    e.preventDefault();
+    const el=$('pRadius'); if(!el) return;
+    const step=e.key===']'?2:-2;
+    el.value=clamp(+el.value+step,0.5,110); if(typeof updateLabels==='function') updateLabels();
+  }
+  if(e.key==='-' || e.key==='='){
+    e.preventDefault();
+    const el=$('pStrength'); if(!el) return;
+    const step=e.key==='='?2:-2;
+    el.value=clamp(+el.value+step,1,80); if(typeof updateLabels==='function') updateLabels();
+  }
+});
+
+(function animate(){if(mode==='3d'&&threeReady&&r3){update3d();r3.render(s3,c3);}requestAnimationFrame(animate);})();
+
+// world size + resolution
+if($('pWorldSize')){
+  $('pWorldSize').addEventListener('change',()=>{
+    worldSize=+$('pWorldSize').value||8192;
+    if($('status'))$('status').textContent='world size '+worldSize+' m';
+  });
+}
+function resizeGrid(newG){
+  newG=+newG|0; if(newG===G||newG<64||newG>1024) return;
+  snapshot();
+  const oldG=G, oldH=new Float32Array(height), oldM=new Uint8ClampedArray(maskRGB), oldO=new Uint8ClampedArray(overrideA), oldT=new Uint8ClampedArray(treeMask);
+  G=newG;
+  height=new Float32Array(G*G);
+  autoRGB=new Uint8ClampedArray(G*G*3);
+  maskRGB=new Uint8ClampedArray(G*G*3);
+  overrideA=new Uint8ClampedArray(G*G);
+  treeMask=new Uint8ClampedArray(G*G);
+  treeAutoMask=new Uint8ClampedArray(G*G);
+  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
+    const ox=x/(G-1)*(oldG-1), oy=y/(G-1)*(oldG-1);
+    height[y*G+x]=bilinearField(oldH,oldG,oldG,ox,oy)[0];
+    const m=bilinearField(oldM,oldG,oldG,ox,oy,3);
+    const i=(y*G+x)*3; maskRGB[i]=m[0];maskRGB[i+1]=m[1];maskRGB[i+2]=m[2];
+    overrideA[y*G+x]=bilinearField(oldO,oldG,oldG,ox,oy)[0]>127?255:0;
+    treeMask[y*G+x]=bilinearField(oldT,oldG,oldG,ox,oy)[0]>127?255:0;
+  }
+  // display buffer
+  try{ display=ctx.createImageData(G,G); }catch(e){}
+  generateAutoMask(false); treeAutoMask=buildAutomaticForestMask(); dirty3d=true; render2d(); updateUndoButtons();
+  if($('status'))$('status').textContent='resolution '+G+'²';
+  updateMapSizeInfo();
+}
+if($('pResolution')){
+  $('pResolution').value=String(G);
+  $('pResolution').addEventListener('change',()=>resizeGrid($('pResolution').value));
+}
+// symmetry toggles
+function toggleSym(btn, key){
+  if(key==='radial'){
+    symRadial=symRadial?0:4;
+    btn.classList.toggle('on', !!symRadial);
+    btn.textContent=symRadial?('RADIAL '+symRadial):'RADIAL 4';
+  }else if(key==='x'){ symMirrorX=!symMirrorX; btn.classList.toggle('on', symMirrorX); }
+  else if(key==='y'){ symMirrorY=!symMirrorY; btn.classList.toggle('on', symMirrorY); }
+  if($('status'))$('status').textContent='symmetry · X='+(symMirrorX?1:0)+' Y='+(symMirrorY?1:0)+' R='+symRadial;
+}
+if($('symMirrorX'))$('symMirrorX').onclick=()=>toggleSym($('symMirrorX'),'x');
+if($('symMirrorY'))$('symMirrorY').onclick=()=>toggleSym($('symMirrorY'),'y');
+if($('symRadial'))$('symRadial').onclick=()=>toggleSym($('symRadial'),'radial');
+// brush presets
+function refreshPresetList(){
+  const list=$('presetList'); if(!list) return;
+  let data=[];
+  try{ data=JSON.parse(store.getItem('terra-gen-brush-presets')||'[]'); }catch(e){}
+  list.innerHTML='';
+  data.forEach((p,i)=>{
+    const opt=document.createElement('option');
+    opt.value=i; opt.textContent=(p.name||('Preset '+(i+1)))+' · '+p.tool+' r'+p.radius;
+    list.appendChild(opt);
+  });
+}
+if($('presetSave'))$('presetSave').onclick=()=>{
+  let data=[]; try{ data=JSON.parse(store.getItem('terra-gen-brush-presets')||'[]'); }catch(e){}
+  const name=prompt('Preset name', tool+' '+Math.round(+$('pRadius').value));
+  if(!name) return;
+  data.push({name, tool, radius:+$('pRadius').value, strength:+$('pStrength').value, low:+$('pLow').value});
+  store.setItem('terra-gen-brush-presets', JSON.stringify(data));
+  refreshPresetList();
+  if($('status'))$('status').textContent='preset saved';
+};
+
+document.querySelectorAll('#heightTools [data-tool]').forEach(b=>{
+  const tip=TOOL_TIPS[b.dataset.tool];
+  if(tip) b.title=tip;
+  b.addEventListener('mouseenter',()=>updateToolTip(b.dataset.tool));
+});
+updateToolTip(tool);
+
+if($('pExportSize')){
+  $('pExportSize').value=String(OUT);
+  $('pExportSize').addEventListener('change',()=>{
+    OUT=+$('pExportSize').value||1024;
+    updateMapSizeInfo();
+    if($('status'))$('status').textContent='export resolution '+OUT+' × '+OUT+' px';
+  });
+}
+if($('pWorldSize')){
+  $('pWorldSize').value=String(worldSize);
+}
+const _ws=$('pWorldSize');
+if(_ws){
+  _ws.addEventListener('change',()=>{
+    worldSize=+$('pWorldSize').value||8192;
+    updateMapSizeInfo();
+    if($('status'))$('status').textContent='world size '+worldSize+' × '+worldSize+' m';
+  });
+}
+updateMapSizeInfo();
+if($('presetLoad'))$('presetLoad').onclick=()=>{
+  let data=[]; try{ data=JSON.parse(store.getItem('terra-gen-brush-presets')||'[]'); }catch(e){}
+  const i=+$('presetList').value; const p=data[i]; if(!p) return;
+  if(p.tool) selectTool(p.tool);
+  if($('pRadius'))$('pRadius').value=p.radius;
+  if($('pStrength'))$('pStrength').value=p.strength;
+  if($('pLow')&&p.low!=null)$('pLow').value=p.low;
+  updateLabels();
+  if($('status'))$('status').textContent='preset loaded · '+p.name;
+};
+refreshPresetList();
+
+makeTemplate('island');treeAutoMask=buildAutomaticForestMask();undoStack.length=0;redoStack.length=0;updateUndoButtons();render2d();resetScaleView();
+</script>
+
+<script>
+(function(){
+  function syncTerrainContext(){
+    const current=document.getElementById('tab3d')?.classList.contains('on')?'3d':document.getElementById('tabTrees')?.classList.contains('on')?'trees':document.getElementById('tabMask')?.classList.contains('on')?'mask':'height';
+    document.querySelectorAll('.context-height').forEach(el=>el.style.display=current==='height'?'block':'none');
+    document.querySelectorAll('.context-mask').forEach(el=>el.style.display=current==='mask'?'block':'none');
+    document.querySelectorAll('.context-trees').forEach(el=>el.style.display=current==='trees'?'block':'none');
+    document.querySelectorAll('.context-3d').forEach(el=>el.style.display=current==='3d'?'block':'none');
+    const currentTool=document.querySelector('#heightTools [data-tool].on')?.dataset.tool||'mountain';
+    const sharp=document.getElementById('sharpWrap'),low=document.getElementById('lowWrap'),strength=document.getElementById('strengthWrap');
+    if(sharp)sharp.style.display=currentTool==='mountain'?'':'none';
+    const needsLevel=['lowland','flatten','lake','fill'].includes(currentTool);
+    if(low)low.style.display=needsLevel?'':'none';
+    const hideStr=['smooth','flatten','fill'].includes(currentTool);
+    if(strength)strength.style.display=hideStr?'none':'';
+    const help=document.getElementById('heightToolHelp');
+    const helpText={
+      mountain:'Drag continuously to draw connected ranges with a narrow ridge profile.',
+      raise:'Raise the terrain beneath the brush.',
+      lower:'Lower the terrain beneath the brush.',
+      flatten:'Level a plateau under the brush (uses local average height).',
+      cliff:'Paint a steep cliff across the stroke direction. Strength = height jump.',
+      lake:'Carve a lake bowl with flat water at target height.',
+      noise:'Add natural surface detail without changing the big shape.',
+      erode:'Thermal-style erosion — material slides downhill.',
+      fill:'Set all cells under the brush toward target height.',
+      stampVolcano:'Stamp a volcano cone (click or short drag).',
+      stampCrater:'Stamp an impact/volcanic crater with rim.',
+      stampHill:'Stamp a smooth round hill.',
+      lowland:'Blend terrain toward the selected target elevation.',
+      coast:'Shape broad beach and coastal shelves.',
+      river:'Carve connected river channels and valleys.',
+      smooth:'Blend abrupt height changes without changing the overall layout.',
+      sea:'Blend terrain down toward the sea floor.'
+    };
+    if(help)help.textContent=helpText[currentTool]||'';
+  }
+  ['tabHeight','tabMask','tabTrees','tab3d'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(syncTerrainContext,0)));
+  document.querySelectorAll('[data-tool],[data-mask]').forEach(b=>b.addEventListener('click',()=>setTimeout(syncTerrainContext,0)));
+  setTimeout(syncTerrainContext,0);
+})();
+</script>
+
+<script>
+(function(){
+  const MAP_RU = {
+    "HEIGHT":"ВЫСОТА","MATERIALS":"МАТЕРИАЛЫ","TREES":"ДЕРЕВЬЯ",
+    "map size (meters)":"размер карты (метры)",
+    "sculpt grid (cells)":"сетка скульпта (клетки)",
+    "export file resolution (px)":"разрешение экспортируемых файлов (px)",
+    "256 × 256 — fast":"256 × 256 — быстро",
+    "512 × 512 — balanced":"512 × 512 — баланс",
+    "768 × 768 — detailed":"768 × 768 — детально",
+    "1024 × 1024 — max":"1024 × 1024 — макс.",
+    "BASIC":"БАЗОВЫЕ","SHAPE":"ФОРМА","DETAIL":"ДЕТАЛИ","STAMPS":"ШТАМПЫ","ACTIVE ·":"АКТИВНО ·",
+    "FLATTEN":"ВЫРОВНЯТЬ",
+    "CLIFF":"УТЁС",
+    "LAKE":"ОЗЕРО",
+    "NOISE DETAIL":"ШУМ ДЕТАЛИ",
+    "ERODE":"ЭРОЗИЯ",
+    "FILL LEVEL":"ЗАЛИТЬ УРОВЕНЬ",
+    "STAMP VOLCANO":"ШТАМП ВУЛКАН",
+    "STAMP CRATER":"ШТАМП КРАТЕР",
+    "STAMP HILL":"ШТАМП ХОЛМ",
+    "target height":"целевая высота",
+    "Hotkeys: 1-9 tools · [ ] radius · - = strength":"Хоткеи: 1-9 инструменты · [ ] радиус · - = сила · колесо зум · Alt+колесо радиус","MASK":"МАСКА","3D PREVIEW":"3D ПРЕВЬЮ","UNDO":"ОТМЕНА","REDO":"ПОВТОР","MODE":"РЕЖИМ",
+    "BASE TERRAIN":"БАЗОВЫЙ ТЕРРЕЙН","ISLAND":"ОСТРОВ","ARCHIPELAGO":"АРХИПЕЛАГ","SQUARE":"КВАДРАТ","BLANK OCEAN":"ПУСТОЙ ОКАН",
+    "sea floor":"дно моря","land base":"база суши","maximum peak":"макс. пик","terrain size":"размер террейна",
+    "SCULPT TOOL":"ИНСТРУМЕНТ СКУЛЬПТА","MOUNTAIN RANGE":"ХРЕБЕТ","RAISE":"ПОДНЯТЬ","LOWER":"ОПУСТИТЬ","LOWLAND":"НИЗМЕННОСТЬ",
+    "COAST / BEACH":"БЕРЕГ / ПЛЯЖ","RIVER / VALLEY":"РЕКА / ДОЛИНА","SMOOTH":"СГЛАДИТЬ","CARVE SEA":"ВЫРЕЗАТЬ МОРЕ",
+    "brush radius":"радиус кисти","strength":"сила","ridge sharpness":"острота хребта","lowland target":"цель низменности",
+    "MATERIAL MASK":"МАСКА МАТЕРИАЛОВ","R · ROCK":"R · КАМЕНЬ","G · SEDIMENT":"G · ОСАДОК","B · VEGETATION":"B · РАСТИТЕЛЬНОСТЬ",
+    "RESTORE AUTO":"ВЕРНУТЬ АВТО","REBUILD AUTO":"ПЕРЕСОБРАТЬ АВТО","ERASE BLACK":"СТЕРЕТЬ ЧЁРНОЕ",
+    "TREES":"ДЕРЕВЬЯ","TREE":"ДЕРЕВЬЯ","ADD TREES":"ДОБАВИТЬ ДЕРЕВЬЯ","BLOCK TREES":"ЗАПРЕТИТЬ ДЕРЕВЬЯ","ERASE MANUAL":"СТЕРЕТЬ РУЧНОЕ","REGENERATE FOREST":"ПЕРЕГЕНЕРИРОВАТЬ ЛЕС","CLEAR MANUAL EDITS":"ОЧИСТИТЬ РУЧНЫЕ ПРАВКИ","RESET TO AUTO":"СБРОСИТЬ В АВТО","forest coverage":"покрытие лесом","forest patch size":"размер лесных массивов","tree preview":"превью деревьев","RELIEF + TREES":"РЕЛЬЕФ + ДЕРЕВЬЯ","TREE MASK ONLY":"ТОЛЬКО МАСКА ДЕРЕВЬЕВ","show tree distribution":"показывать распределение деревьев",
+    "overlay opacity":"прозрачность оверлея","sand height limit":"лимит высоты песка",
+    "show 20 m terrain contours":"контуры рельефа 20 м","show tree exclusions":"показать исключения деревьев",
+    "refresh automatic mask after sculpting":"обновлять авто-маску после скульпта",
+    "preview / Substrata height scale":"масштаб высоты превью / Substrata",
+    "RESET VIEW":"СБРОС ВИДА","HISTORY":"ИСТОРИЯ","PROJECT":"ПРОЕКТ","SAVE":"СОХРАНИТЬ","LOAD":"ЗАГРУЗИТЬ",
+    "EXPORT":"ЭКСПОРТ","EXR":"EXR","MATERIALS":"МАТЕРИАЛЫ","TREES":"ДЕРЕВЬЯ","ZIP":"ZIP","HEIGHT PREVIEW PNG":"ПРЕВЬЮ ВЫСОТЫ PNG","TREE MASK PNG":"МАСКА ДЕРЕВЬЕВ PNG",
+    "EXPORT COMPATIBILITY":"СОВМЕСТИМОСТЬ ЭКСПОРТА",
+    "Substrata orientation · flip vertically":"Ориентация Substrata · отразить по вертикали",
+    "TERRAIN ONLY":"ТОЛЬКО ТЕРРЕЙН","MASK ONLY":"ТОЛЬКО МАСКА","RELIEF + MASK":"РЕЛЬЕФ + МАСКА","preview":"превью",
+    "BUILD":"СТРОИТЬ","SELECT":"ВЫБОР","MOVE":"ПЕРЕМЕЩЕНИЕ","ROTATE":"ПОВОРОТ","SCALE":"МАСШТАБ",
+    "WALL":"СТЕНА","ROOM":"КОМНАТА","ARC":"ДУГА","COLUMN":"КОЛОННА","VAULT":"СВОД","DOME":"КУПОЛ",
+    "PLANE":"ПЛОСКОСТЬ","SLAB":"ПЛИТА","ROOF":"КРЫША","OPENING":"ПРОЁМ","DOOR":"ДВЕРЬ","WINDOW":"ОКНО",
+    "FLOOR":"ПОЛ","CEILING":"ПОТОЛОК","DELETE":"УДАЛИТЬ","DUPLICATE":"ДУБЛИРОВАТЬ","GROUP":"ГРУППА","FOCUS":"ФОКУС",
+    "CLEAR":"ОЧИСТИТЬ","CLEAR ALL":"ОЧИСТИТЬ ВСЁ","CLEAR SCENE":"ОЧИСТИТЬ СЦЕНУ",
+    "PAINT SURFACE":"КРАСИТЬ ПОВЕРХНОСТЬ","APPLY TO SELECTION":"ПРИМЕНИТЬ К ВЫБОРУ",
+    "CENTER ON FLOOR":"ЦЕНТР НА ПОЛ","WORLD":"МИР","CENTER":"ЦЕНТР","GLB":"GLB","ZIP":"ZIP","JSON":"JSON","DOWNLOAD":"СКАЧАТЬ",
+    "CONCRETE":"БЕТОН","WOOD":"ДЕРЕВО","CLAY / TERRACOTTA":"ГЛИНА / ТЕРРАКОТА","METAL":"МЕТАЛЛ","STONE":"КАМЕНЬ","PLASTER":"ШТУКАТУРКА",
+    "GENERATE":"СГЕНЕРИРОВАТЬ","RANDOMIZE":"СЛУЧАЙНО","BASE COLOR":"БАЗОВЫЙ ЦВЕТ","NORMAL":"NORMAL","ORM":"ORM",
+    "LOAD SLOT":"ЗАГРУЗИТЬ СЛОТ","UPDATE SLOT":"ОБНОВИТЬ СЛОТ","ADD AS CUSTOM MATERIAL":"ДОБАВИТЬ КАК СВОЙ МАТЕРИАЛ",
+    "ADD SLOT":"ДОБАВИТЬ СЛОТ","MAPS ZIP":"ZIP КАРТ","LIVE MATERIAL PREVIEW":"ЖИВОЙ ПРЕВЬЮ МАТЕРИАЛА",
+    "MATERIAL":"МАТЕРИАЛ","TEXTURE MAPS":"КАРТЫ ТЕКСТУР",
+    "COUCH":"ДИВАН","CHAIR":"СТУЛ","TABLE / DESK":"СТОЛ / ПАРТА","BED":"КРОВАТЬ",
+    "DIMENSIONS":"РАЗМЕРЫ","CONSTRUCTION":"КОНСТРУКЦИЯ","MATERIAL ROLES":"РОЛИ МАТЕРИАЛОВ",
+    "PRIMARY":"ОСНОВНОЙ","SECONDARY":"ВТОРИЧНЫЙ","ACCENT":"АКЦЕНТ","FRAME":"РАМА","GLASS":"СТЕКЛО",
+    "BLANKET":"ОДЕЯЛО","PILLOWS":"ПОДУШКИ","TYPE":"ТИП","VIEW":"ВИД","SCENE":"СЦЕНА",
+    "FIT / ISO":"ВПИСАТЬ / ISO","FRONT":"СПЕРЕДИ","SIDE":"СБОКУ",
+    "IMPORT MATERIALS FROM PROJECT":"ИМПОРТ МАТЕРИАЛОВ ИЗ ПРОЕКТА",
+    "CREATE":"СОЗДАТЬ","CREATE STRUCTURE":"СОЗДАТЬ СТРУКТУРУ","BUILD MATERIAL":"МАТЕРИАЛ СТРОЙКИ",
+    "Light BG":"Светлый фон","Dark BG":"Тёмный фон","LIGHT BG":"СВЕТЛЫЙ ФОН","DARK BG":"ТЁМНЫЙ ФОН",
+    "PARAMETERS":"ПАРАМЕТРЫ","TOOL PARAMETERS":"ПАРАМЕТРЫ ИНСТРУМЕНТА","SELECTION":"ВЫБОР","OUTLINER":"АУТЛАЙНЕР",
+    "REFERENCE UNDERLAY":"ПОДЛОЖКА","GRID SNAP":"ПРИВЯЗКА К СЕТКЕ","ANGLE SNAP":"ПРИВЯЗКА УГЛА",
+    "LOCAL":"ЛОКАЛЬНО","APPLY TO SELECTED":"ПРИМЕНИТЬ К ВЫБРАННОМУ","CUT OPENING":"ВЫРЕЗАТЬ ПРОЁМ",
+    "COPY AI INSTRUCTIONS":"КОПИРОВАТЬ ИНСТРУКЦИИ ИИ","DANGER ZONE":"ОПАСНАЯ ЗОНА",
+    "LOCKED":"ЗАБЛОКИРОВАНО",
+    "ATOLL":"АТОЛЛ",
+    "PENINSULA":"ПОЛУОСТРОВ",
+    "FJORD":"ФЬОРД",
+    "CANYON":"КАНЬОН",
+    "CRATER":"КРАТЕР",
+    "CONTINENT SHELF":"ШЕЛЬФ",
+    "RANDOMIZE SEED":"СЛУЧАЙНЫЙ SEED",
+    "REGENERATE":"ПЕРЕСОЗДАТЬ",
+    "POST PASSES":"ПОСТ-ПРОХОДЫ",
+    "EROSION":"ЭРОЗИЯ",
+    "TERRACES":"ТЕРРАСЫ",
+    "DUNES":"ДЮНЫ",
+    "NOISE DETAIL":"ШУМ ДЕТАЛИ",
+    "pass strength":"сила прохода",
+    "TRANSFORM":"ТРАНСФОРМ",
+    "MIRROR H":"ЗЕРКАЛО H",
+    "MIRROR V":"ЗЕРКАЛО V",
+    "IMPORT":"ИМПОРТ",
+    "IMPORT HEIGHTMAP PNG":"ИМПОРТ HEIGHTMAP PNG",
+    "Grayscale PNG/JPEG as height. Black → sea floor, white → peak. Replaces current field.":"Ч/б PNG/JPEG как высоты. Чёрный → дно, белый → пик. Заменяет текущее поле.",
+    "seed":"seed",
+    "SOFT RAISE":"МЯГКИЙ ПОДЪЁМ",
+    "HARD RAISE":"ЖЁСТКИЙ ПОДЪЁМ",
+    "SOFT LOWER":"МЯГКОЕ ОПУСКАНИЕ",
+    "HARD LOWER":"ЖЁСТКОЕ ОПУСКАНИЕ",
+    "PINCH":"СЖАТИЕ",
+    "INFLATE":"НАДУТЬ",
+    "DEFLATE":"СДУТЬ",
+    "CLAY BUILD":"ГЛИНА",
+    "BLOB":"СГУСТОК",
+    "AMPLIFY":"УСИЛИТЬ",
+    "DAMPEN":"ОСЛАБИТЬ",
+    "POLISH":"ПОЛИРОВКА",
+    "SHARPEN":"ЗАТОЧИТЬ",
+    "PLATEAU":"ПЛАТО",
+    "RAMP":"ПАНДУС",
+    "WALL RIDGE":"СТЕНА-ХРЕБЕТ",
+    "BASIN":"КОТЛОВИНА",
+    "GORGE":"УЩЕЛЬЕ",
+    "BERM":"ВАЛ",
+    "SADDLE":"СЕДЛОВИНА",
+    "NOTCH":"ВЫРЕЗ",
+    "SHELF":"ШЕЛЬФ",
+    "COVE":"БУХТА",
+    "SPIT":"КОСА",
+    "CHANNEL":"КАНАЛ",
+    "DELTA":"ДЕЛЬТА",
+    "DEPOSIT":"НАНОС",
+    "TERRACE":"ТЕРРАСЫ",
+    "STRIATE":"ШТРИХИ",
+    "RIPPLE":"РЯБЬ",
+    "SCRATCH":"ЦАРАПИНА",
+    "CRACK":"ТРЕЩИНА",
+    "POCKMARK":"ВЫБОИНЫ",
+    "PEBBLE":"ГАЛЬКА",
+    "WEATHER":"ВЫВЕТРИВАНИЕ",
+    "GRAIN":"ЗЕРНО",
+    "VOLCANO":"ВУЛКАН",
+    "HILL":"ХОЛМ",
+    "CONE":"КОНУС",
+    "MESA":"МЕСА",
+    "CALDERA":"КАЛЬДЕРА",
+    "RIDGE BLOB":"ГРЯДА",
+    "SPIRE":"ШПИЛЬ",
+    "PYRAMID":"ПИРАМИДА",
+    "BOWL":"ЧАША",
+    "ARCH":"АРКА",
+    "ATOLL RING":"КОЛЬЦО АТОЛЛА",
+    "TWIN HILLS":"ДВА ХОЛМА",
+    "TOR ROCKS":"СКАЛЫ-ТОРЫ",
+    "RAMP STAMP":"ШТАМП ПАНДУС",
+    "SYMMETRY":"СИММЕТРИЯ",
+    "BRUSH PRESETS":"ПРЕСЕТЫ КИСТИ",
+    "SAVE PRESET":"СОХРАНИТЬ ПРЕСЕТ",
+    "LOAD PRESET":"ЗАГРУЗИТЬ ПРЕСЕТ",
+    "MIRROR X":"ЗЕРКАЛО X",
+    "MIRROR Y":"ЗЕРКАЛО Y",
+    "RADIAL 4":"РАДИАЛ 4",
+    "world size":"размер мира",
+    "resolution":"разрешение",
+    "SLOPE AUTO MASK":"МАСКА ПО УКЛОНУ",
+    "paint land only":"только суша",
+    "paint sea only":"только море",
+    "ROCK":"СКАЛА",
+    "DIRT":"ГРУНТ",
+    "SNOW":"СНЕГ"
+  };
+  const MAP_EN = {};
+  Object.keys(MAP_RU).forEach(k=>{ MAP_EN[MAP_RU[k]] = k; });
+
+  function tr(text, toRu){
+    if(!text) return text;
+    const map = toRu ? MAP_RU : MAP_EN;
+    const trimmed = text.trim();
+    if(map[trimmed]){
+      return text.replace(trimmed, map[trimmed]);
+    }
+    let out = text;
+    Object.keys(map).sort((a,b)=>b.length-a.length).forEach(k=>{
+      if(k.length>=3 && out.indexOf(k)>=0) out = out.split(k).join(map[k]);
+    });
+    return out;
+  }
+
+  function snap(root){
+    root.querySelectorAll('button, label, h1, h2, h3, h4, span, b, strong, a, p, li, div, summary, option, td, th').forEach(el=>{
+      if(el.closest('script,style')) return;
+      if(el.childNodes.length===1 && el.childNodes[0].nodeType===3 && !el.hasAttribute('data-en')){
+        const v = el.childNodes[0].nodeValue;
+        if(v && !/[А-Яа-яЁё]/.test(v)) el.setAttribute('data-en', v);
+      }
+      // multi-child: snapshot direct text nodes once
+      el.childNodes.forEach(n=>{
+        if(n.nodeType===3 && n._en==null && n.nodeValue && !/[А-Яа-яЁё]/.test(n.nodeValue)) n._en = n.nodeValue;
+      });
+    });
+    root.querySelectorAll('[title],[placeholder],[aria-label]').forEach(el=>{
+      ['title','placeholder','aria-label'].forEach(attr=>{
+        if(!el.hasAttribute(attr)) return;
+        const key = 'data-en-'+attr;
+        if(!el.hasAttribute(key)){
+          const v = el.getAttribute(attr);
+          if(v && !/[А-Яа-яЁё]/.test(v)) el.setAttribute(key, v);
+        }
+      });
+    });
+  }
+
+  function restore(root){
+    root.querySelectorAll('[data-en]').forEach(el=>{
+      const v = el.getAttribute('data-en');
+      if(el.childNodes.length===1 && el.childNodes[0].nodeType===3) el.childNodes[0].nodeValue = v;
+      else if(!el.children.length) el.textContent = v;
+    });
+    root.querySelectorAll('[data-en-title]').forEach(el=>el.setAttribute('title', el.getAttribute('data-en-title')));
+    root.querySelectorAll('[data-en-placeholder]').forEach(el=>el.setAttribute('placeholder', el.getAttribute('data-en-placeholder')));
+    root.querySelectorAll('[data-en-aria-label]').forEach(el=>el.setAttribute('aria-label', el.getAttribute('data-en-aria-label')));
+    // restore text node snapshots
+    root.querySelectorAll('button, label, h1, h2, h3, h4, span, b, strong, a, p, li, div, summary').forEach(el=>{
+      el.childNodes.forEach(n=>{ if(n.nodeType===3 && n._en!=null) n.nodeValue = n._en; });
+    });
+  }
+
+  function apply(root, toRu){
+    snap(root);
+    restore(root);
+    if(!toRu) return;
+    const skip = {SCRIPT:1,STYLE:1,TEXTAREA:1,CODE:1,PRE:1,INPUT:1};
+    const walk = (node)=>{
+      if(!node) return;
+      if(node.nodeType===1){
+        if(skip[node.tagName]) return;
+        ['title','placeholder','aria-label'].forEach(attr=>{
+          if(node.hasAttribute && node.hasAttribute(attr)){
+            const v = node.getAttribute(attr);
+            const nv = tr(v, true);
+            if(nv!==v) node.setAttribute(attr, nv);
+          }
+        });
+        // value on readonly inputs
+        if(node.tagName==='INPUT' && node.readOnly && node.value){
+          const nv = tr(node.value, true);
+          if(nv!==node.value) node.value = nv;
+        }
+        Array.from(node.childNodes).forEach(walk);
+      } else if(node.nodeType===3){
+        const v = node.nodeValue;
+        if(!v || !v.trim()) return;
+        if(/^[\d\s.,+\-×x%m°·]+$/i.test(v.trim())) return;
+        const nv = tr(v, true);
+        if(nv!==v) node.nodeValue = nv;
+      }
+    };
+    walk(root);
+  }
+
+  function setLang(lang){
+    const toRu = lang==='ru';
+    try{ if(window.__sfStore) window.__sfStore.setItem('terra-gen-lang', toRu ? 'ru' : 'en'); }catch(e){}
+    document.documentElement.lang = toRu ? 'ru' : 'en';
+    document.querySelectorAll('[data-lang]').forEach(b=>{
+      b.classList.toggle('on', b.dataset.lang === (toRu ? 'ru' : 'en'));
+    });
+    apply(document.body, toRu);
+  }
+
+  function boot(){
+    let lang = 'en';
+    try{ lang = (window.__sfStore && window.__sfStore.getItem('terra-gen-lang')) || 'en'; }catch(e){ lang='en'; }
+    setLang(lang);
+  }
+
+  document.getElementById('lang_en')?.addEventListener('click', ()=>setLang('en'));
+  document.getElementById('lang_ru')?.addEventListener('click', ()=>setLang('ru'));
+
+  window.addEventListener('message', (e)=>{
+    if(e.data && e.data.type==='terra-gen-lang') setLang(e.data.lang);
+  });
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  // late UI that builds after boot
+  setTimeout(boot, 100);
+  setTimeout(boot, 400);
+})();
+</script>
+</body>
+</html>
