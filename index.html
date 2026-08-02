@@ -111,6 +111,7 @@ header.commandbar button{height:32px;min-width:50px;padding:0 9px;font-size:11px
 .brand-row{display:flex;align-items:center;gap:12px;margin-right:8px;flex:none}
 .brand-row h1{font:700 21px Impact,'Arial Narrow',Arial,sans-serif;letter-spacing:2px;color:var(--gold);font-weight:400;white-space:nowrap}
 .language-picker{position:relative;z-index:40;margin-left:4px}
+header.commandbar{position:relative;z-index:100}
 header.commandbar .language-picker .language-toggle{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:82px;height:32px;padding:0 10px;
   background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:10px ui-monospace,Consolas,'Courier New',monospace;
@@ -121,7 +122,7 @@ header.commandbar .language-picker .language-toggle{
 .language-toggle .language-chevron{width:12px;height:12px;transition:transform .18s ease}
 .language-picker.open .language-chevron{transform:rotate(180deg)}
 .language-menu{
-  position:absolute;top:calc(100% + 6px);left:0;min-width:170px;padding:4px;
+  position:fixed;top:0;left:0;z-index:1000;min-width:170px;padding:4px;
   background:#0d1014;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.4);
   opacity:0;visibility:hidden;transform:translateY(-7px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease
 }
@@ -2915,7 +2916,15 @@ refreshPresetList();
     toggle.setAttribute('aria-label',label);
     toggle.title=label;
   }
+  function positionMenu(){
+    const rect=toggle.getBoundingClientRect();
+    const width=Math.max(170,menu.offsetWidth||170);
+    const left=Math.max(8,Math.min(rect.left,window.innerWidth-width-8));
+    menu.style.left=left+'px';
+    menu.style.top=(rect.bottom+6)+'px';
+  }
   function setOpen(open){
+    if(open)positionMenu();
     picker.classList.toggle('open',open);
     toggle.setAttribute('aria-expanded',String(open));
   }
@@ -2925,6 +2934,8 @@ refreshPresetList();
   }));
   document.addEventListener('click',event=>{if(!picker.contains(event.target))setOpen(false);});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')setOpen(false);});
+  window.addEventListener('resize',()=>{if(picker.classList.contains('open'))positionMenu();});
+  window.addEventListener('scroll',()=>{if(picker.classList.contains('open'))positionMenu();},true);
   new MutationObserver(sync).observe(menu,{subtree:true,attributes:true,attributeFilter:['class']});
   sync();
   setTimeout(sync,0);
