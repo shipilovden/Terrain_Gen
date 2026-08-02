@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TERRA GEN · Terrain Editor</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0b0d10;--panel:#12151a;--panel2:#171b21;--line:#272d36;
@@ -12,9 +11,9 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--txt);font:12px 'Share Tech Mono',monospace;display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--txt);font:12px ui-monospace,Consolas,'Courier New',monospace;display:flex;flex-direction:column}
 header{height:48px;display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid var(--line)}
-h1{font:26px 'Bebas Neue',sans-serif;letter-spacing:3px;color:var(--gold)}
+h1{font:700 24px Impact,'Arial Narrow',Arial,sans-serif;letter-spacing:3px;color:var(--gold)}
 header .sub{color:var(--dim);letter-spacing:1px}
 header .tabs{margin-left:auto;display:flex;gap:6px}
 header .editGroup,header .viewGroup{display:flex;gap:6px;align-items:center}
@@ -110,11 +109,31 @@ header.commandbar button{height:32px;min-width:50px;padding:0 9px;font-size:11px
 @media(max-width:860px){header.commandbar{overflow-x:auto}.cmd-cluster.document{margin-left:0}}
 
 .brand-row{display:flex;align-items:center;gap:12px;margin-right:8px;flex:none}
-.brand-row h1{font:22px 'Bebas Neue',sans-serif;letter-spacing:2px;color:var(--gold);font-weight:400;white-space:nowrap}
-.lang-toggle{display:flex;border:1px solid var(--line);background:var(--panel2);overflow:hidden;margin-left:4px}
-.lang-toggle button{min-width:0;padding:6px 9px;background:transparent;color:var(--dim);border:0;font:10px 'Share Tech Mono',monospace;letter-spacing:1px;cursor:pointer;height:28px}
-.lang-toggle button:hover{color:var(--gold)}
-.lang-toggle button.on{background:var(--gold);color:#0b0d10}
+.brand-row h1{font:700 21px Impact,'Arial Narrow',Arial,sans-serif;letter-spacing:2px;color:var(--gold);font-weight:400;white-space:nowrap}
+.language-picker{position:relative;z-index:40;margin-left:4px}
+header.commandbar .language-picker .language-toggle{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:82px;height:32px;padding:0 10px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:10px ui-monospace,Consolas,'Courier New',monospace;
+  letter-spacing:1px;cursor:pointer
+}
+.language-toggle:hover,.language-picker.open .language-toggle{border-color:var(--gold);color:var(--gold)}
+.language-toggle svg{width:15px;height:15px;stroke-width:1.8;flex:none}
+.language-toggle .language-chevron{width:12px;height:12px;transition:transform .18s ease}
+.language-picker.open .language-chevron{transform:rotate(180deg)}
+.language-menu{
+  position:absolute;top:calc(100% + 6px);left:0;min-width:170px;padding:4px;
+  background:#0d1014;border:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.4);
+  opacity:0;visibility:hidden;transform:translateY(-7px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease
+}
+.language-picker.open .language-menu{opacity:1;visibility:visible;transform:translateY(0)}
+header.commandbar .language-picker .language-option{
+  display:flex;align-items:center;justify-content:space-between;width:100%;min-width:0;height:32px;padding:0 9px;
+  background:transparent;border:1px solid transparent;color:var(--txt);font:10px ui-monospace,Consolas,'Courier New',monospace;
+  letter-spacing:1px;text-align:left;cursor:pointer
+}
+.language-option:hover{border-color:var(--line);background:var(--panel2);color:var(--gold)}
+.language-option.on{background:var(--gold);color:#0b0d10}
+.language-option .lang-code{font-size:9px;opacity:.7}
 header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px solid #2a3039}
 
 
@@ -160,15 +179,53 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
   border-left:2px solid var(--gold2);padding-left:8px;
 }
 
+/* Slide-out settings dock */
+main{position:relative}
+aside.drawer-shell{
+  position:fixed;z-index:30;left:0;top:48px;bottom:27px;width:min(360px,calc(100vw - 10px));
+  min-width:0;margin:0;padding:11px;background:var(--panel);border-right:1px solid var(--line);
+  box-shadow:10px 0 30px rgba(0,0,0,.28);overflow:auto;
+  transform:translateX(-100%);transition:transform .22s ease;
+}
+aside.drawer-shell.drawer-open{transform:translateX(0)}
+.drawer-head{
+  position:sticky;top:-11px;z-index:5;display:flex;align-items:center;justify-content:space-between;
+  min-height:38px;margin:-11px -11px 11px;padding:8px 10px;background:#0d1014;border-bottom:1px solid var(--line);
+}
+.drawer-head strong{color:var(--gold);font-size:10px;letter-spacing:1.8px;font-weight:400}
+.drawer-close{width:30px;height:28px;padding:0;display:flex;align-items:center;justify-content:center}
+.drawer-close svg{width:16px;height:16px}
+.drawer-section{display:none}
+aside[data-drawer="base"] #baseTerrainSection,
+aside[data-drawer="sculpt"] #heightSettings,
+aside[data-drawer="mask"] #maskSettings,
+aside[data-drawer="trees"] #treeSettings,
+aside[data-drawer="preview"] #previewSettings,
+aside[data-drawer="export"] #exportSettings{display:block}
+.icon-button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.icon-button svg{width:16px;height:16px;flex:none;stroke-width:1.8}
+.icon-label{display:inline}
+body.icons-ready .icon-button .icon-label{display:none}
+.tool-menu .tool-list .icon-button{min-height:34px;padding:6px 4px}
+.tool-menu .tool-list .icon-button svg{width:17px;height:17px}
+@media(max-width:800px){
+  aside.drawer-shell{width:min(350px,calc(100vw - 10px))}
+}
+
 </style>
 </head>
 <body>
 <header class="commandbar" role="toolbar" aria-label="Terrain commands">
   <div class="brand-row">
     <h1>TERRA GEN</h1>
-    <div class="lang-toggle" role="group" aria-label="Language">
-      <button type="button" data-lang="en" class="on" id="lang_en">EN</button>
-      <button type="button" data-lang="ru" id="lang_ru">RU</button>
+    <div class="language-picker" id="languagePicker">
+      <button type="button" id="languageToggle" class="language-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Change language">
+        <i data-lucide="languages"></i><span id="languageCurrent">EN</span><i class="language-chevron" data-lucide="chevron-down"></i>
+      </button>
+      <div class="language-menu" id="languageMenu" role="menu">
+        <button type="button" data-lang="en" class="language-option on" id="lang_en" role="menuitem"><span>English</span><span class="lang-code">EN</span></button>
+        <button type="button" data-lang="ru" class="language-option" id="lang_ru" role="menuitem"><span>Русский</span><span class="lang-code">RU</span></button>
+      </div>
     </div>
   </div>
   <div class="cmd-cluster">
@@ -192,6 +249,7 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
     <button id="saveProject">SAVE</button>
     <button id="loadProject">LOAD</button>
     <span class="cmd-label export-label">EXPORT</span>
+    <button id="exportSettingsToggle" data-drawer-target="export" class="icon-button" title="Export settings"><i data-lucide="settings-2"></i><span class="icon-label">SETTINGS</span></button>
     <button id="exportEXR" class="on">EXR</button>
     <button id="exportMask">MATERIALS</button>
     <button id="exportTrees">TREES</button>
@@ -199,8 +257,9 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
   </div>
 </header>
 <main>
-<aside>
-  <details class="setup-block context-height" id="baseTerrainSection" open>
+<aside id="settingsDrawer" class="drawer-shell drawer-open" data-drawer="base" aria-label="Settings drawer">
+  <div class="drawer-head"><strong id="drawerTitle">BASE TERRAIN</strong><button type="button" id="closeDrawer" class="drawer-close icon-button" title="Close settings"><i data-lucide="x"></i><span class="icon-label">CLOSE</span></button></div>
+  <details class="setup-block context-height drawer-section" id="baseTerrainSection" data-drawer-section="base" open>
     <summary>BASE TERRAIN</summary>
     <div class="setup-body">
       <details class="island-menu" id="islandMenu">
@@ -304,8 +363,9 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
     </div>
   </details>
 
-  <div class="sect context-height" id="heightSettings">
-    <h2>SCULPT TOOL</h2>
+  <details class="setup-block context-height drawer-section" id="heightSettings" data-drawer-section="sculpt">
+    <summary>SCULPT TOOL</summary>
+    <div class="setup-body">
     <div class="sculpt-current" id="sculptCurrent">ACTIVE · MOUNTAIN RANGE</div>
     <div id="heightTools">
       <details class="tool-menu" open>
@@ -419,9 +479,10 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
     <div class="mini" id="hotkeyHint">Hotkeys: 1-9 tools · [ ] radius · - = strength · wheel zoom · Alt+wheel radius</div>
     <div class="row"><input id="autoMask" type="checkbox" checked><label for="autoMask">refresh automatic mask after sculpting</label></div>
     <div class="mini" id="heightToolHelp">Drag continuously to draw connected mountain ranges.</div>
-  </div>
+    </div>
+  </details>
 
-  <div class="sect context-mask" id="maskSettings">
+  <div class="sect context-mask drawer-section" id="maskSettings" data-drawer-section="mask">
     <h2>MATERIAL MASK</h2>
     <div class="grid3" id="maskTools">
       <button data-mask="r" class="on">R · КАМЕНЬ</button>
@@ -443,7 +504,7 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
 
   </div>
 
-  <div class="sect context-trees" id="treeSettings">
+  <div class="sect context-trees drawer-section" id="treeSettings" data-drawer-section="trees">
     <h2>TREES</h2>
     <button type="button" id="treeGenerateAuto" class="wide" style="margin-bottom:6px">REGENERATE FOREST</button>
     <div class="grid2" id="treeMaskTools">
@@ -460,13 +521,13 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
     <div class="mini">Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. In Metasiberia, tree placement also requires the vegetation material channel (B / detail 2). ADD TREES now sets both masks together.</div>
   </div>
 
-  <div class="sect context-3d" id="previewSettings">
+  <div class="sect context-3d drawer-section" id="previewSettings" data-drawer-section="preview">
     <h2>3D PREVIEW</h2>
     <div class="param"><label>preview / Substrata height scale <b id="vHeightScale">8.0×</b></label><input id="pHeightScale" type="range" min="25" max="1600" value="800"></div>
     <div class="mini">This affects only the preview and recommended Substrata setting; exported height values remain in meters.</div>
   </div>
 
-  <div class="sect" id="exportSettings">
+  <div class="sect drawer-section" id="exportSettings" data-drawer-section="export">
     <h2>EXPORT COMPATIBILITY</h2>
     <div class="row"><input id="flipY" type="checkbox" checked><label for="flipY">Substrata orientation · flip vertically</label></div>
     <button id="exportHeightPNG" class="wide">HEIGHT PREVIEW PNG</button>
@@ -479,7 +540,6 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
   <div id="panel2d" class="panel on">
     <div class="canvasWrap">
       <canvas id="paintCanvas" width="1024" height="1024"></canvas>
-      <div class="hud" id="hud"><b>HEIGHT</b> · drag to sculpt · Ctrl+wheel zoom · right/middle-drag pan · wheel changes brush radius</div>
       <div class="legend" id="heightLegend">deep sea → coast → lowland → mountain</div>
       <div class="legend" id="maskLegend" style="display:none">
         <div><span class="sw" style="background:#f00"></span>R rock · detail 0</div>
@@ -503,8 +563,8 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
   <span id="footerSize">512² sculpt → 1024² export · 8192 m world</span>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script src="https://unpkg.com/lucide@1.28.0/dist/umd/lucide.min.js" defer></script>
 <script>
 'use strict';
 
@@ -690,7 +750,7 @@ function updateLabels(){
   const el=$(id); if(el) el.addEventListener('input',updateLabels);
 });
 if($('pSeed')) $('pSeed').addEventListener('input',()=>{terrainSeed=+$('pSeed').value;});
-if($('pHeightScale')) $('pHeightScale').addEventListener('input',()=>{dirty3d=true;if(typeof update3d==='function')update3d();});
+if($('pHeightScale')) $('pHeightScale').addEventListener('input',()=>{dirty3d=true;dirtyPreview3d=true;if(typeof update3d==='function')update3d();});
 updateLabels();
 
 function updateUndoButtons(){
@@ -717,7 +777,7 @@ function normalizeTreeMask(arr){
 }
 function restore(s){
   height=new Float32Array(s.h);maskRGB=new Uint8ClampedArray(s.m);overrideA=new Uint8ClampedArray(s.o);
-  treeMask=normalizeTreeMask(s.t);treeAutoMask=s.ta?new Uint8ClampedArray(s.ta):buildAutomaticForestMask();dirty3d=true;render2d();updateUndoButtons();
+  treeMask=normalizeTreeMask(s.t);treeAutoMask=s.ta?new Uint8ClampedArray(s.ta):buildAutomaticForestMask();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
 }
 function doUndo(){
   if(!undoStack.length)return;
@@ -1148,7 +1208,7 @@ function makeTemplate(kind){
     height[idx(x,y)]=h;
   }
   if(kind!=='blank') naturalizeHeightField(sea, peak);
-  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();render2d();dirty3d=true;
+  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();render2d();dirty3d=true;dirtyPreview3d=true;
   $('status').textContent=(kind==='island'?('island/'+islandKind):kind)+' · seed '+terrainSeed+' · naturalized';updateUndoButtons();
 }
 document.querySelectorAll('[data-template]').forEach(b=>b.onclick=()=>makeTemplate(b.dataset.template));
@@ -1183,7 +1243,7 @@ function applyErosion(){
   }
   height.set(next);
   if($('autoMask')?.checked)generateAutoMask(false);
-  dirty3d=true;render2d();updateUndoButtons();
+  dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent='erosion pass';
 }
 
@@ -1198,7 +1258,7 @@ function applyTerraces(){
     height[i]=lerp(h,clamp(band,sea,peak),str*.85);
   }
   if($('autoMask')?.checked)generateAutoMask(false);
-  dirty3d=true;render2d();updateUndoButtons();
+  dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent='terraces pass';
 }
 
@@ -1213,7 +1273,7 @@ function applyDunes(){
     height[i]=clamp(h+ridge*str*7,sea,peak);
   }
   if($('autoMask')?.checked)generateAutoMask(false);
-  dirty3d=true;render2d();updateUndoButtons();
+  dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent='dunes pass';
 }
 
@@ -1227,7 +1287,7 @@ function applyNoiseDetail(){
     height[i]=clamp(h+n*str*14,sea,peak);
   }
   if($('autoMask')?.checked)generateAutoMask(false);
-  dirty3d=true;render2d();updateUndoButtons();
+  dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent='noise detail pass';
 }
 
@@ -1246,7 +1306,7 @@ function mirrorHeight(axis){
     nextM[i*3]=maskRGB[j*3];nextM[i*3+1]=maskRGB[j*3+1];nextM[i*3+2]=maskRGB[j*3+2];
   }
   height=next;maskRGB=nextM;overrideA=nextO;treeMask=nextT;
-  dirty3d=true;render2d();updateUndoButtons();
+  dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent=axis==='h'?'mirrored horizontally':'mirrored vertically';
 }
 
@@ -1267,7 +1327,7 @@ function importHeightmapFile(file){
       height[i]=lerp(sea,peak,gray);
     }
     overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
-    dirty3d=true;render2d();updateUndoButtons();
+    dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
     $('status').textContent='heightmap imported · '+file.name;
     URL.revokeObjectURL(url);
   };
@@ -1337,9 +1397,12 @@ function show2d(which){
   $('heightLegend').style.display=which==='height'?'block':'none';
   $('maskLegend').style.display=which==='mask'?'block':'none';
   $('treeLegend').style.display=which==='trees'?'block':'none';
-  if(which==='height')$('hud').innerHTML='<b>HEIGHT</b> · drag to sculpt · wheel zoom · right/middle-drag pan · Alt+wheel brush radius';
-  else if(which==='mask')$('hud').innerHTML='<b>MATERIALS</b> · paint rock / sediment / vegetation';
-  else $('hud').innerHTML='<b>TREES</b> · white = trees · black = no trees';
+  const hud=$('hud');
+  if(hud){
+    if(which==='height')hud.innerHTML='<b>HEIGHT</b> · drag to sculpt · wheel zoom · right/middle-drag pan · Alt+wheel brush radius';
+    else if(which==='mask')hud.innerHTML='<b>MATERIALS</b> · paint rock / sediment / vegetation';
+    else hud.innerHTML='<b>TREES</b> · white = trees · black = no trees';
+  }
   render2d();
 }
 $('tabHeight').onclick=()=>show2d('height');
@@ -1674,14 +1737,14 @@ cv.addEventListener('pointermove',e=>{
     const dist=Math.hypot(p.x-lastPt.x,p.y-lastPt.y),step=Math.max(1,activeRadius*.16),n=Math.max(1,Math.ceil(dist/step));
     let prev=lastPt;
     for(let k=1;k<=n;k++){const q={x:lerp(lastPt.x,p.x,k/n),y:lerp(lastPt.y,p.y,k/n)};if(mode==='height')stampHeight(q.x,q.y,prev);else stampMask(q.x,q.y);prev=q;}
-    lastPt=p;dirty3d=true;render2d();
+    lastPt=p;dirty3d=true;dirtyPreview3d=true;render2d();
   }else render2d();
 });
 cv.addEventListener('pointerup',()=>{
   if(mapPanning){mapPanning=false;mapPanStart=null;cv.classList.remove('panning');return;}
   if(!drawing)return;drawing=false;lastPt=null;
   if(mode==='height'&&$('autoMask').checked)generateAutoMask(false);
-  render2d();dirty3d=true;
+  render2d();dirty3d=true;dirtyPreview3d=true;
 });
 cv.addEventListener('pointercancel',()=>{mapPanning=false;mapPanStart=null;drawing=false;cv.classList.remove('panning');});
 cv.addEventListener('pointerleave',()=>{brushCursor.x=-1;brushCursor.y=-1;if(!drawing&&!mapPanning)render2d();});
@@ -1928,52 +1991,67 @@ function render2d(){
   }
 }
 
-// ---------- 3D preview ----------
-let threeReady=false, r3, s3, c3, mesh3, geo3, mat3, sun;
-let theta=-.75,phi=.82,dist=620,target=null,drag3=null;
-function cam3(){ if(!threeReady||!c3||!target) return; c3.position.set(target.x+dist*Math.sin(phi)*Math.cos(theta),target.y+dist*Math.cos(phi),target.z+dist*Math.sin(phi)*Math.sin(theta));c3.lookAt(target); }
-function update3d(){
-  if(!threeReady||!dirty3d||!geo3)return; dirty3d=false;
-  try{
-    const p=geo3.attributes.position.array,col=geo3.attributes.color.array;
-    const world=worldSize||8192,heightScale=+$('pHeightScale').value/100;
-    const displayWidth=520;
-    const verticalFactor=(displayWidth/world)*heightScale;
-    for(let y=0;y<PRE;y++)for(let x=0;x<PRE;x++){
-      const gx=Math.round(x/(PRE-1)*(G-1)),gy=Math.round(y/(PRE-1)*(G-1)),i=idx(gx,gy),vi=(y*PRE+x);
-      p[vi*3+1]=height[i]*verticalFactor;
-      const c=heightColor(height[i]);col[vi*3]=c[0]/255;col[vi*3+1]=c[1]/255;col[vi*3+2]=c[2]/255;
-    }
-    geo3.attributes.position.needsUpdate=true;geo3.attributes.color.needsUpdate=true;geo3.computeVertexNormals();
-  }catch(e){}
+// ---------- 3D preview (dependency-free Canvas 2D) ----------
+let threeReady=true, r3=null, s3=null, c3=null, mesh3=null, geo3=null, mat3=null, sun=null;
+let theta=-0.72,phi=0.78,dist=1,target={x:0,y:0},drag3=null,dirtyPreview3d=true;
+const previewCanvas=$('preview3d');
+const previewCtx=previewCanvas.getContext('2d',{alpha:false});
+function cam3(){}
+function resetScaleView(){theta=-0.72;phi=0.78;dist=1;target={x:0,y:0};dirtyPreview3d=true;update3d();}
+function resize3d(){
+  if(!previewCanvas)return;
+  const dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,previewCanvas.clientWidth),h=Math.max(1,previewCanvas.clientHeight);
+  const nw=Math.round(w*dpr),nh=Math.round(h*dpr);
+  if(previewCanvas.width!==nw||previewCanvas.height!==nh){previewCanvas.width=nw;previewCanvas.height=nh;dirtyPreview3d=true;}
+  update3d();
 }
-function resize3d(){ if(!threeReady||!r3||!c3)return; try{const can=$('preview3d'),w=can.clientWidth,h=can.clientHeight;r3.setSize(w,h,false);c3.aspect=w/h;c3.updateProjectionMatrix();}catch(e){} }
-function resetScaleView(){ theta=-.75;phi=.82;dist=620; if(target) target.set(0,15,0); cam3(); }
-try{
-  if(typeof THREE!=='undefined'){
-    r3=new THREE.WebGLRenderer({canvas:$('preview3d'),antialias:true});
-    r3.setPixelRatio(Math.min(devicePixelRatio,2));
-    s3=new THREE.Scene();s3.background=new THREE.Color(0x0b0d10);
-    c3=new THREE.PerspectiveCamera(48,1,.1,5000);
-    target=new THREE.Vector3(0,15,0);
-    cam3();s3.add(new THREE.HemisphereLight(0xb9c7dd,0x27221b,1.25));
-    sun=new THREE.DirectionalLight(0xffe4bd,1.7);sun.position.set(250,500,180);s3.add(sun);
-    geo3=new THREE.PlaneGeometry(520,520,PRE-1,PRE-1);geo3.rotateX(-Math.PI/2);
-    geo3.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(PRE*PRE*3),3));
-    mat3=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:0,side:THREE.DoubleSide});
-    mesh3=new THREE.Mesh(geo3,mat3);s3.add(mesh3);
-    threeReady=true;
-    new ResizeObserver(resize3d).observe($('preview3d'));
-    $('preview3d').addEventListener('contextmenu',e=>e.preventDefault());
-    $('preview3d').addEventListener('pointerdown',e=>{drag3={x:e.clientX,y:e.clientY,t:theta,p:phi,target:target.clone(),b:e.button};$('preview3d').setPointerCapture(e.pointerId);});
-    $('preview3d').addEventListener('pointermove',e=>{if(!drag3||!c3)return;const dx=e.clientX-drag3.x,dy=e.clientY-drag3.y;if(drag3.b===0){theta=drag3.t+dx*.006;phi=clamp(drag3.p-dy*.006,.12,1.48);}else{const right=new THREE.Vector3().setFromMatrixColumn(c3.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(c3.matrix,1);target.copy(drag3.target).addScaledVector(right,-dx*.35).addScaledVector(up,dy*.35);}cam3();});
-    $('preview3d').addEventListener('pointerup',()=>drag3=null);
-    $('preview3d').addEventListener('wheel',e=>{e.preventDefault();dist=clamp(dist*(1+e.deltaY*.001),180,1700);cam3();},{passive:false});
+function project3d(px,py,pz,w,h,scale){
+  const ca=Math.cos(theta),sa=Math.sin(theta),cp=Math.cos(phi),sp=Math.sin(phi);
+  const x=(px-target.x)*ca-(py-target.y)*sa;
+  const z=(px-target.x)*sa+(py-target.y)*ca;
+  const sy=z*cp-pz*sp;
+  return {x:w*.5+x*scale,y:h*.54+sy*scale};
+}
+function update3d(){
+  if(mode!=='3d'&&!dirtyPreview3d)return;
+  dirtyPreview3d=false;
+  const c=previewCanvas,g=previewCtx;if(!c||!g)return;
+  const w=c.width,h=c.height;g.fillStyle='#0b0d10';g.fillRect(0,0,w,h);
+  // Keep the preview smooth at 512² while retaining a bounded painter workload.
+  // The previous G/96 sampling made every terrain cell visibly blocky (~5×5 px).
+  const step=Math.max(2,Math.floor(G/192));
+  const hs=(+$('pHeightScale').value/100)*0.018;
+  const scale=Math.min(w,h)/(G*1.52)*dist;
+  g.lineJoin='round';
+  // back-to-front painter order
+  const cells=[];
+  for(let y=0;y<G-step;y+=step)for(let x=0;x<G-step;x+=step){
+    const cx=x+step*.5,cy=y+step*.5;
+    const depth=(cx-G/2)*Math.sin(theta)+(cy-G/2)*Math.cos(theta);
+    cells.push([depth,x,y]);
   }
-}catch(err){ console.warn('3D preview unavailable', err); threeReady=false; }
-if($('resetView'))$('resetView').onclick=()=>{if(mode==='3d')resetScaleView();else resetMapView();};
-updateZoomReadout();
-
+  cells.sort((a,b)=>a[0]-b[0]);
+  for(const cell of cells){
+    const x=cell[1],y=cell[2];
+    const ids=[idx(x,y),idx(Math.min(G-1,x+step),y),idx(Math.min(G-1,x+step),Math.min(G-1,y+step)),idx(x,Math.min(G-1,y+step))];
+    const pts=[[x,y,height[ids[0]]*hs],[x+step,y,height[ids[1]]*hs],[x+step,y+step,height[ids[2]]*hs],[x,y+step,height[ids[3]]*hs]].map(q=>project3d(q[0]-G/2,q[1]-G/2,q[2],w,h,scale));
+    const av=(height[ids[0]]+height[ids[1]]+height[ids[2]]+height[ids[3]])*.25;
+    const col=heightColor(av);
+    const slope=(height[ids[0]]-height[ids[2]])*.018+(height[ids[1]]-height[ids[3]])*.012;
+    const shade=clamp(.92+slope,.45,1.18);
+    g.fillStyle=`rgb(${Math.round(col[0]*shade)},${Math.round(col[1]*shade)},${Math.round(col[2]*shade)})`;
+    g.beginPath();g.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)g.lineTo(pts[i].x,pts[i].y);g.closePath();g.fill();
+  }
+}
+if(previewCanvas){
+  new ResizeObserver(resize3d).observe(previewCanvas);
+  previewCanvas.addEventListener('contextmenu',e=>e.preventDefault());
+  previewCanvas.addEventListener('pointerdown',e=>{drag3={x:e.clientX,y:e.clientY,t:theta,p:phi,tx:target.x,ty:target.y,b:e.button};previewCanvas.setPointerCapture(e.pointerId);});
+  previewCanvas.addEventListener('pointermove',e=>{if(!drag3)return;const dx=e.clientX-drag3.x,dy=e.clientY-drag3.y;if(drag3.b===0){theta=drag3.t+dx*.007;phi=clamp(drag3.p-dy*.005,.2,1.35);}else{target.x=drag3.tx-dx/dist;target.y=drag3.ty-dy/dist;}dirtyPreview3d=true;update3d();});
+  previewCanvas.addEventListener('pointerup',()=>drag3=null);
+  previewCanvas.addEventListener('pointercancel',()=>drag3=null);
+  previewCanvas.addEventListener('wheel',e=>{e.preventDefault();dist=clamp(dist*(e.deltaY>0?.9:1.1),.45,3.2);dirtyPreview3d=true;update3d();},{passive:false});
+}
 // ---------- resampling/export ----------
 function bilinearField(src,w,h,x,y,channels=1){
   x=clamp(x,0,w-1);y=clamp(y,0,h-1);const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1),tx=x-x0,ty=y-y0;
@@ -2148,7 +2226,7 @@ $('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().th
     if(Number.isFinite(d.settings.treeSettings.patch))$('pTreePatch').value=d.settings.treeSettings.patch;
     if(Number.isFinite(d.settings.treeSettings.seed))forestSeed=(d.settings.treeSettings.seed>>>0)||104729;
   }
-  updateLabels();generateAutoMask(false);applyForestToMaterialMask();dirty3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
+  updateLabels();generateAutoMask(false);applyForestToMaterialMask();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
 
 
 
@@ -2241,7 +2319,7 @@ function updateMapSizeInfo(){
   if(typeof mesh3!=='undefined' && mesh3){
     const s=m/8192;
     mesh3.scale.set(s,1,s);
-    dirty3d=true;
+    dirty3d=true;dirtyPreview3d=true;
   }
 }
 
@@ -2288,7 +2366,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-(function animate(){if(mode==='3d'&&threeReady&&r3){update3d();r3.render(s3,c3);}requestAnimationFrame(animate);})();
+(function animate(){if(mode==='3d'&&dirtyPreview3d)update3d();requestAnimationFrame(animate);})();
 
 // world size + resolution
 if($('pWorldSize')){
@@ -2318,7 +2396,7 @@ function resizeGrid(newG){
   }
   // display buffer
   try{ display=ctx.createImageData(G,G); }catch(e){}
-  generateAutoMask(false); treeAutoMask=buildAutomaticForestMask(); applyForestToMaterialMask(); dirty3d=true; render2d(); updateUndoButtons();
+  generateAutoMask(false); treeAutoMask=buildAutomaticForestMask(); applyForestToMaterialMask(); dirty3d=true;dirtyPreview3d=true; render2d(); updateUndoButtons();
   if($('status'))$('status').textContent='resolution '+G+'²';
   updateMapSizeInfo();
 }
@@ -2400,7 +2478,21 @@ if($('presetLoad'))$('presetLoad').onclick=()=>{
 };
 refreshPresetList();
 
-makeTemplate('island');treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();undoStack.length=0;redoStack.length=0;updateUndoButtons();render2d();resetScaleView();
+// Lightweight startup: do not run the expensive terrain generator while the page is loading.
+(function initTerrainWithoutBlocking(){
+  const sea = +$('pSea').value || -85;
+  height.fill(sea);
+  overrideA.fill(0);
+  treeMask.fill(0);
+  treeAutoMask.fill(0);
+  generateAutoMask(true);
+  undoStack.length = 0;
+  redoStack.length = 0;
+  updateUndoButtons();
+  render2d();
+  updateZoomReadout();
+  if($('status')) $('status').textContent = 'ready · choose terrain and press REGENERATE';
+})();
 </script>
 
 <script>
@@ -2751,7 +2843,8 @@ makeTemplate('island');treeAutoMask=buildAutomaticForestMask();applyForestToMate
   function translateNode(n,lang){
     if(n.nodeType===3){
       if(!n.nodeValue||!n.nodeValue.trim())return;
-      n.nodeValue=localizeText(n.nodeValue,lang);
+      const next=localizeText(n.nodeValue,lang);
+      if(next!==n.nodeValue)n.nodeValue=next;
     }else if(n.nodeType===1){
       if(['SCRIPT','STYLE','CODE','PRE','TEXTAREA'].includes(n.tagName))return;
       for(const a of ['placeholder','aria-label']) if(n.hasAttribute(a)) n.setAttribute(a,localizeText(n.getAttribute(a),lang));
@@ -2802,6 +2895,127 @@ makeTemplate('island');treeAutoMask=buildAutomaticForestMask();applyForestToMate
     observer.observe(document.body,{subtree:true,childList:true,characterData:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<script id="terraGenLanguageMenu">
+(function(){
+  const picker=document.getElementById('languagePicker');
+  const toggle=document.getElementById('languageToggle');
+  const menu=document.getElementById('languageMenu');
+  const current=document.getElementById('languageCurrent');
+  if(!picker||!toggle||!menu||!current)return;
+  function activeLanguage(){
+    const active=menu.querySelector('[data-lang].on');
+    return (active?.dataset.lang||document.documentElement.lang||'en').toLowerCase()==='ru'?'ru':'en';
+  }
+  function sync(){
+    const lang=activeLanguage();
+    current.textContent=lang.toUpperCase();
+    const label=lang==='ru'?'Сменить язык':'Change language';
+    toggle.setAttribute('aria-label',label);
+    toggle.title=label;
+  }
+  function setOpen(open){
+    picker.classList.toggle('open',open);
+    toggle.setAttribute('aria-expanded',String(open));
+  }
+  toggle.addEventListener('click',()=>setOpen(!picker.classList.contains('open')));
+  menu.querySelectorAll('[data-lang]').forEach(option=>option.addEventListener('click',()=>{
+    setTimeout(()=>{setOpen(false);sync();},0);
+  }));
+  document.addEventListener('click',event=>{if(!picker.contains(event.target))setOpen(false);});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')setOpen(false);});
+  new MutationObserver(sync).observe(menu,{subtree:true,attributes:true,attributeFilter:['class']});
+  sync();
+  setTimeout(sync,0);
+  setTimeout(sync,250);
+})();
+</script>
+  <script id="terraGenIconUi">
+(function(){
+  'use strict';
+  const TOOL_ICONS={
+    mountain:'mountain',raise:'arrow-up',lower:'arrow-down',softRaise:'sunrise',hardRaise:'chevron-up',
+    softLower:'sunset',hardLower:'chevron-down',pinch:'move',inflate:'circle-plus',deflate:'circle-minus',
+    clay:'hand',blob:'circle',amplify:'contrast',dampen:'droplets',smooth:'waves',polish:'sparkles',
+    sharpen:'scissors',flatten:'equal',plateau:'landmark',ramp:'trending-up',cliff:'mountain-snow',
+    wall:'panel-top',basin:'bowl',gorge:'route',berm:'minus',saddle:'minus',notch:'scissors',lake:'waves',
+    fill:'paint-bucket',lowland:'landmark',coast:'waves',shelf:'layers',cove:'circle',spit:'arrow-right',
+    river:'git-branch',channel:'route',delta:'git-merge',sea:'waves',noise:'audio-waveform',erode:'wind',
+    deposit:'arrow-down-to-line',terrace:'layers-3',striate:'grip-horizontal',ripple:'waves',scratch:'slash',
+    crack:'zap',pockmark:'circle-dot',pebble:'circle',weather:'cloud-sun',grain:'sparkles',
+    stampVolcano:'volcano',stampCrater:'circle-dot',stampHill:'mountain',stampCone:'triangle',stampMesa:'landmark',
+    stampCaldera:'circle-dashed',stampRidge:'mountain',stampSpire:'triangle',stampPyramid:'triangle',
+    stampBowl:'bowl',stampArch:'arch',stampAtoll:'circle-dashed',stampTwin:'copy',stampDunes:'waves',
+    stampTor:'gem',stampRamp:'move-up'
+  };
+  const MASK_ICONS={r:'mountain',g:'waves',b:'leaf',smooth:'blend',erase:'eraser',treeAdd:'tree-pine',treeBlock:'ban',treeErase:'eraser'};
+  const ACTION_ICONS={
+    tabHeight:'mountain',tabMask:'layers-3',tabTrees:'trees',tab3d:'orbit',
+    undoTop:'undo-2',redoTop:'redo-2',zoomOut2d:'zoom-out',zoomIn2d:'zoom-in',resetView:'scan',
+    saveProject:'save',loadProject:'folder-open',exportEXR:'file-down',exportMask:'layers-3',exportTrees:'tree-pine',exportBundle:'package',
+    btnRandomize:'shuffle',btnRegenBase:'refresh-cw',btnErode:'waves',btnTerraces:'layers-3',btnDunes:'waves',btnNoisePass:'sparkles',
+    btnMirrorH:'flip-horizontal-2',btnMirrorV:'flip-vertical-2',btnImportHeight:'image-up',symMirrorX:'flip-horizontal-2',symMirrorY:'flip-vertical-2',
+    symRadial:'rotate-ccw',presetSave:'save',presetLoad:'folder-open',regenMask:'refresh-cw',slopeAuto:'wand-sparkles',
+    treeGenerateAuto:'trees',treeResetAuto:'eraser',exportHeightPNG:'image-down'
+  };
+  const DRAWER_LABELS={base:'BASE TERRAIN',sculpt:'SCULPT TOOL',mask:'MATERIAL MASK',trees:'TREES',preview:'3D PREVIEW',export:'EXPORT'};
+  let switchingMode=false;
+
+  function iconify(button,name){
+    if(!button||button.querySelector('[data-lucide]'))return;
+    const label=(button.textContent||'').replace(/\s+/g,' ').trim();
+    if(!label)return;
+    button.classList.add('icon-button');
+    button.setAttribute('aria-label',button.getAttribute('aria-label')||label);
+    button.innerHTML='';
+    const icon=document.createElement('i');icon.setAttribute('data-lucide',name||'sparkles');
+    const text=document.createElement('span');text.className='icon-label';text.textContent=label;
+    button.append(icon,text);
+  }
+  function iconifyUi(){
+    Object.entries(ACTION_ICONS).forEach(([id,name])=>iconify(document.getElementById(id),name));
+    document.querySelectorAll('[data-tool]').forEach(button=>iconify(button,TOOL_ICONS[button.dataset.tool]||'sparkles'));
+    document.querySelectorAll('[data-mask]').forEach(button=>iconify(button,MASK_ICONS[button.dataset.mask]||'layers'));
+  }
+  function pascal(name){return name.split('-').map(part=>part.charAt(0).toUpperCase()+part.slice(1)).join('');}
+  function fallbackMissingIcons(){
+    const available=window.lucide&&window.lucide.icons;
+    if(!available)return;
+    document.querySelectorAll('[data-lucide]').forEach(node=>{if(!available[pascal(node.dataset.lucide)])node.dataset.lucide='sparkles';});
+  }
+  function setDrawer(name,focusMode=true){
+    const drawer=document.getElementById('settingsDrawer');if(!drawer)return;
+    drawer.dataset.drawer=name;drawer.classList.add('drawer-open');
+    document.querySelectorAll('[data-drawer-target]').forEach(button=>button.classList.toggle('on',button.dataset.drawerTarget===name));
+    const title=document.getElementById('drawerTitle');if(title)title.textContent=DRAWER_LABELS[name]||'SETTINGS';
+    if(!focusMode)return;
+    if(name==='preview'&&!switchingMode){
+      const tab=document.getElementById('tab3d');if(tab){switchingMode=true;tab.click();switchingMode=false;}
+    }else if(name==='mask'&&typeof show2d==='function')show2d('mask');
+    else if(name==='trees'&&typeof show2d==='function')show2d('trees');
+    else if((name==='base'||name==='sculpt')&&typeof show2d==='function')show2d('height');
+  }
+  function closeDrawer(){document.getElementById('settingsDrawer')?.classList.remove('drawer-open');}
+  window.terraGenOpenDrawer=setDrawer;
+  document.querySelectorAll('[data-drawer-target]').forEach(button=>button.addEventListener('click',()=>setDrawer(button.dataset.drawerTarget)));
+  document.getElementById('closeDrawer')?.addEventListener('click',closeDrawer);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDrawer();});
+  document.getElementById('tabHeight')?.addEventListener('click',()=>setDrawer('sculpt',false));
+  document.getElementById('tabMask')?.addEventListener('click',()=>setDrawer('mask',false));
+  document.getElementById('tabTrees')?.addEventListener('click',()=>setDrawer('trees',false));
+  document.getElementById('tab3d')?.addEventListener('click',()=>{if(!switchingMode)setDrawer('preview',false);});
+  iconifyUi();
+
+  function renderIcons(){
+    if(!window.lucide||typeof window.lucide.createIcons!=='function')return;
+    try{
+      fallbackMissingIcons();
+      window.lucide.createIcons({attrs:{'stroke-width':1.8}});
+      document.body.classList.add('icons-ready');
+    }catch(error){console.warn('Lucide icons unavailable',error);}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',renderIcons,{once:true});else renderIcons();
 })();
 </script>
 </body>
