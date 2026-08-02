@@ -12,6 +12,12 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--txt);font:12px ui-monospace,Consolas,'Courier New',monospace;display:flex;flex-direction:column}
+*{scrollbar-width:thin;scrollbar-color:var(--gold2) #0d1014}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:#0d1014;border-left:1px solid var(--line)}
+*::-webkit-scrollbar-thumb{background:var(--gold2);border:2px solid #0d1014;border-radius:6px}
+*::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+*::-webkit-scrollbar-corner{background:#0d1014}
 header{height:48px;display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid var(--line)}
 h1{font:700 24px Impact,'Arial Narrow',Arial,sans-serif;letter-spacing:3px;color:var(--gold)}
 header .sub{color:var(--dim);letter-spacing:1px}
@@ -156,6 +162,15 @@ header.commandbar .brand-row + .cmd-cluster{padding-left:10px;border-left:1px so
 .island-menu .island-group{
   color:var(--gold);font-size:9px;letter-spacing:1.4px;padding:8px 4px 3px;opacity:.9;
 }
+.terrain-form-menu{margin-bottom:6px;border:1px solid var(--line);background:#0d1014}
+.terrain-form-menu>summary{
+  cursor:pointer;list-style:none;padding:8px 9px;letter-spacing:1px;font-size:10px;
+  color:var(--gold);background:var(--panel2);border-bottom:1px solid var(--line)
+}
+.terrain-form-menu>summary::-webkit-details-marker{display:none}
+.terrain-form-menu>summary::after{content:'+';float:right;color:var(--gold)}
+.terrain-form-menu[open]>summary::after{content:'–'}
+.terrain-form-menu .grid2{padding:6px}
 
 
 .tool-menu{margin-bottom:5px;border:1px solid var(--line);background:#0d1014}
@@ -277,6 +292,8 @@ body.icons-ready .icon-button .icon-label{display:none}
           <button type="button" data-island="rias">RIAS / DROWNED</button>
           <button type="button" data-island="spit">SPIT / SANDBAR</button>
           <button type="button" data-island="arch">ARCH ROCKS</button>
+          <button type="button" data-island="chain">VOLCANIC CHAIN</button>
+          <button type="button" data-island="reef">REEF ATOLL</button>
           <div class="island-group">UNREAL</div>
           <button type="button" data-island="ring">RING DONUT</button>
           <button type="button" data-island="crescent">CRESCENT</button>
@@ -292,17 +309,24 @@ body.icons-ready .icon-button .icon-label{display:none}
           <button type="button" data-island="lagoonchain">LAGOON CHAIN</button>
         </div>
       </details>
-      <div class="grid2" id="templateGrid">
-        <button data-template="archipelago">ARCHIPELAGO</button>
-        <button data-template="atoll">ATOLL</button>
-        <button data-template="peninsula">PENINSULA</button>
-        <button data-template="fjord">FJORD</button>
-        <button data-template="canyon">CANYON</button>
-        <button data-template="crater">CRATER</button>
-        <button data-template="shelf">CONTINENT SHELF</button>
-        <button data-template="square">SQUARE</button>
-        <button data-template="blank">BLANK OCEAN</button>
-      </div>
+      <details class="terrain-form-menu" id="terrainForms">
+        <summary>FORMS / TEMPLATES</summary>
+        <div class="grid2" id="templateGrid">
+          <button data-template="archipelago">ARCHIPELAGO</button>
+          <button data-template="atoll">ATOLL</button>
+          <button data-template="peninsula">PENINSULA</button>
+          <button data-template="fjord">FJORD</button>
+          <button data-template="canyon">CANYON</button>
+          <button data-template="crater">CRATER</button>
+          <button data-template="shelf">CONTINENT SHELF</button>
+          <button data-template="continent">CONTINENT</button>
+          <button data-template="volcano">VOLCANIC CONE</button>
+          <button data-template="caldera">CALDERA</button>
+          <button data-template="delta">RIVER DELTA</button>
+          <button data-template="square">SQUARE</button>
+          <button data-template="blank">BLANK OCEAN</button>
+        </div>
+      </details>
       <div class="param"><label>sea floor <b id="vSea">-85 m</b></label><input id="pSea" type="range" min="-160" max="-10" value="-85"></div>
       <div class="param"><label>land base <b id="vLand">8 m</b></label><input id="pLand" type="range" min="0" max="50" value="8"></div>
       <div class="param"><label>maximum peak <b id="vPeak">282 m</b></label><input id="pPeak" type="range" min="60" max="1200" value="282"></div>
@@ -910,6 +934,34 @@ function shapeField(kind,x,y){
     edge=inside?smoothstep(.3,-.75,coast):0;
     surfaceNoise=n;
     if(coast>=0.3 && coast<0.82) heightBoost=-3;
+  }else if(kind==='continent'){
+    const ww=warpNoise(x,y,s+12);
+    const coast=continentalMask(u*.72,v*.62,s+5)
+      +(fbmAt2(ww.x,ww.y,s+17,4,.025)-.5)*.08-.12;
+    inside=coast<0.04;d=coast;
+    edge=inside?smoothstep(.04,-.62,coast):0;
+    surfaceNoise=n*.8;
+  }else if(kind==='volcano'){
+    const ww=warpNoise(x,y,s+18);
+    const r=Math.hypot(u/(.86+n*.04),v/(.86+n2*.04))
+      +(fbmAt2(ww.x,ww.y,s+20,4,.03)-.5)*.08;
+    inside=r<.92;d=r;edge=inside?smoothstep(.92,.08,r):0;
+    surfaceNoise=n*.45;
+  }else if(kind==='delta'){
+    const basin=Math.hypot(u/.96,v/.9)-1.02;
+    const width=.16+(v+1)*.34+(fbmAt2(x,y,s+22,3,.035)-.5)*.08;
+    const fan=Math.abs(u)/Math.max(.12,width)+v*.12-1;
+    d=Math.max(fan,basin);inside=d<.04;
+    edge=inside?smoothstep(.04,-.55,d):0;
+    surfaceNoise=n*.65;
+  }else if(kind==='caldera'){
+    const ww=warpNoise(x,y,s+24);
+    const r=Math.hypot(u/(.76+n*.05),v/(.76+n2*.05))
+      +(fbmAt2(ww.x,ww.y,s+25,4,.03)-.5)*.08;
+    inside=r<.92;d=r;edge=inside?smoothstep(.92,.2,r):0;
+    surfaceNoise=n*.4;
+    if(r<.38)heightBoost=-2;
+    else if(r<.58)heightBoost=1;
   }else if(kind==='island' || (kind&&kind.indexOf('island')===0)){
     const ik=islandKind||'classic';
     const ww=warpNoise(x,y,s+11);
@@ -1021,6 +1073,20 @@ function shapeField(kind,x,y){
         best=Math.min(best, ring+(fbmAt2(ww.x,ww.y,s+k,2,.04)-.5)*.06);
       }
       mask=best;
+    }else if(ik==='chain'){
+      let best=9;
+      for(let k=0;k<5;k++){
+        const t=k/4,cx=-.62+t*1.24+Math.sin(s*.014+k)*.06,cy=.16+Math.sin(k*1.7+s*.01)*.2;
+        const rx=.2+(k%2)*.04,ry=.25+(k%3)*.035;
+        const dd=Math.hypot((u-cx)/(rx+n*.04),(v-cy)/(ry+n2*.04))
+          -(fbmAt2(x+k*15,y,s+31+k,3,.035)-.5)*.12;
+        best=Math.min(best,dd-.82);
+      }
+      mask=best;heightBoost=18;
+    }else if(ik==='reef'){
+      const r=Math.hypot(u/.72,v/.68)+(fbmAt2(ww.x,ww.y,s+33,3,.03)-.5)*.08;
+      const rim=Math.abs(r-.56)-.17;
+      mask=r<.37?.14:rim;heightBoost=19;
     }else{
       mask=continentalMask(u,v,s);
     }
@@ -1098,7 +1164,7 @@ function naturalizeHeightField(sea,peak){
   height.set(out);
 }
 function islandLabel(ik){
-  const map={classic:'CLASSIC VOLCANIC',high:'HIGH MOUNTAINOUS',low:'LOW CORAL CAY',barrier:'BARRIER / LONG',twin:'TWIN LINKED',caldera:'CALDERA',mesa:'TABLE / MESA',rias:'RIAS / DROWNED',spit:'SPIT / SANDBAR',arch:'ARCH ROCKS',ring:'RING DONUT',crescent:'CRESCENT',star:'STAR',spiral:'SPIRAL',serpent:'SERPENT',shards:'SHATTERED',crystal:'CRYSTAL SPIRES',plateau:'CLIFF PLATEAU',mushroom:'MUSHROOM CAP',heart:'HEART',needle:'SKY NEEDLE',lagoonchain:'LAGOON CHAIN'};
+  const map={classic:'CLASSIC VOLCANIC',high:'HIGH MOUNTAINOUS',low:'LOW CORAL CAY',barrier:'BARRIER / LONG',twin:'TWIN LINKED',caldera:'CALDERA',mesa:'TABLE / MESA',rias:'RIAS / DROWNED',spit:'SPIT / SANDBAR',arch:'ARCH ROCKS',chain:'VOLCANIC CHAIN',reef:'REEF ATOLL',ring:'RING DONUT',crescent:'CRESCENT',star:'STAR',spiral:'SPIRAL',serpent:'SERPENT',shards:'SHATTERED',crystal:'CRYSTAL SPIRES',plateau:'CLIFF PLATEAU',mushroom:'MUSHROOM CAP',heart:'HEART',needle:'SKY NEEDLE',lagoonchain:'LAGOON CHAIN'};
   return map[ik]||ik;
 }
 function setIslandKind(ik, regenerate){
@@ -1125,6 +1191,16 @@ function makeTemplate(kind){
     let h=sea;
     if(kind==='blank'){
       h=sea+n*1.5;
+    }else if(kind==='volcano'){
+      if(inside){
+        const cone=Math.pow(Math.max(0,edge),.9);
+        h=lerp(land*.75,Math.min(peak,land+(peak-land)*.92),cone);
+        const crater=Math.hypot((x-G/2)/(G*.16),(y-G/2)/(G*.16));
+        if(crater<.2)h=lerp(h,land+10,smoothstep(.2,.05,crater)*.9);
+      }else if(d<1.2){
+        const shore=smoothstep(1.2,0,d);
+        h=lerp(sea,.5,Math.pow(shore,1.4)*.9)+surfaceNoise*2*shore;
+      }
     }else if(kind==='canyon'){
       const elev=landHeight(0.6+surfaceNoise*.2, surfaceNoise, ridge, land, peak, kind, x, y);
       h=elev;
@@ -1139,9 +1215,9 @@ function makeTemplate(kind){
       }
       const margin=Math.max(Math.abs((x-G/2)/(G/2)),Math.abs((y-G/2)/(G/2)));
       if(margin>.84) h=lerp(h,sea,smoothstep(.84,1.0,margin));
-    }else if(kind==='crater'){
+    }else if(kind==='crater'||kind==='caldera'){
       if(inside){
-        h=landHeight(edge, surfaceNoise, ridge, land, Math.min(peak,land+90), kind, x, y);
+        h=landHeight(edge, surfaceNoise, ridge, land, Math.min(peak,land+(kind==='caldera'?150:90)), kind, x, y);
         if(heightBoost===-2) h=lerp(h, Math.max(sea+5, land*.2), 0.92);
         if(heightBoost===1) h=lerp(h, Math.min(peak*.55, land+28+ridge*36), 0.78);
       }else if(d<1.1){
@@ -1189,6 +1265,11 @@ function makeTemplate(kind){
           }else if(heightBoost===17||ik==='needle'){
             const cen=1-Math.min(1, Math.hypot((x-G/2)/(G*.12),(y-G/2)/(G*.12)));
             h=lerp(h, peak*.85, Math.pow(Math.max(0,cen),2.5)*.8);
+          }else if(heightBoost===18||ik==='chain'){
+            const cone=Math.pow(Math.max(0,edge),1.25);
+            h=lerp(h,land+cone*(peak-land)*.55,.55);
+          }else if(heightBoost===19||ik==='reef'){
+            h=lerp(h,land*.35+surfaceNoise*2.5,.78);
           }
         }
       }
@@ -2562,7 +2643,7 @@ refreshPresetList();
     "STAMP HILL":"ШТАМП ХОЛМ",
     "target height":"целевая высота",
     "Hotkeys: 1-9 tools · [ ] radius · - = strength":"Хоткеи: 1-9 инструменты · [ ] радиус · - = сила · колесо зум · Alt+колесо радиус","MASK":"МАСКА","3D PREVIEW":"3D ПРЕВЬЮ","UNDO":"ОТМЕНА","REDO":"ПОВТОР","MODE":"РЕЖИМ",
-    "BASE TERRAIN":"БАЗОВЫЙ ТЕРРЕЙН","ISLAND":"ОСТРОВ","ARCHIPELAGO":"АРХИПЕЛАГ","SQUARE":"КВАДРАТ","BLANK OCEAN":"ПУСТОЙ ОКАН",
+    "BASE TERRAIN":"БАЗОВЫЙ ТЕРРЕЙН","ISLAND":"ОСТРОВ","ARCHIPELAGO":"АРХИПЕЛАГ","VOLCANIC CHAIN":"ВУЛКАНИЧЕСКАЯ ЦЕПЬ","REEF ATOLL":"РИФОВЫЙ АТОЛЛ","FORMS / TEMPLATES":"ФОРМЫ / ШАБЛОНЫ","CONTINENT":"КОНТИНЕНТ","VOLCANIC CONE":"ВУЛКАНИЧЕСКИЙ КОНУС","RIVER DELTA":"РЕЧНАЯ ДЕЛЬТА","SQUARE":"КВАДРАТ","BLANK OCEAN":"ПУСТОЙ ОКЕАН",
     "sea floor":"дно моря","land base":"база суши","maximum peak":"макс. пик","terrain size":"размер террейна",
     "SCULPT TOOL":"ИНСТРУМЕНТ СКУЛЬПТА","MOUNTAIN RANGE":"ХРЕБЕТ","RAISE":"ПОДНЯТЬ","LOWER":"ОПУСТИТЬ","LOWLAND":"НИЗМЕННОСТЬ",
     "COAST / BEACH":"БЕРЕГ / ПЛЯЖ","RIVER / VALLEY":"РЕКА / ДОЛИНА","SMOOTH":"СГЛАДИТЬ","CARVE SEA":"ВЫРЕЗАТЬ МОРЕ",
@@ -2815,6 +2896,7 @@ refreshPresetList();
 (function(){
   'use strict';
   const RU={"HEIGHT": "ВЫСОТА", "MATERIALS": "МАТЕРИАЛЫ", "TREES": "ДЕРЕВЬЯ", "map size (meters)": "размер карты (метры)", "sculpt grid (cells)": "сетка скульпта (клетки)", "export file resolution (px)": "разрешение экспортируемых файлов (px)", "256 × 256 — fast": "256 × 256 — быстро", "512 × 512 — balanced": "512 × 512 — баланс", "768 × 768 — detailed": "768 × 768 — детально", "1024 × 1024 — max": "1024 × 1024 — макс.", "BASIC": "БАЗОВЫЕ", "SHAPE": "ФОРМА", "DETAIL": "ДЕТАЛИ", "STAMPS": "ШТАМПЫ", "ACTIVE ·": "АКТИВНО ·", "FLATTEN": "ВЫРОВНЯТЬ", "CLIFF": "УТЁС", "LAKE": "ОЗЕРО", "NOISE DETAIL": "ШУМ ДЕТАЛИ", "ERODE": "ЭРОЗИЯ", "FILL LEVEL": "ЗАЛИТЬ УРОВЕНЬ", "STAMP VOLCANO": "ШТАМП ВУЛКАН", "STAMP CRATER": "ШТАМП КРАТЕР", "STAMP HILL": "ШТАМП ХОЛМ", "target height": "целевая высота", "Hotkeys: 1-9 tools · [ ] radius · - = strength": "Хоткеи: 1-9 инструменты · [ ] радиус · - = сила · колесо зум · Alt+колесо радиус", "MASK": "МАСКА", "3D PREVIEW": "3D ПРЕВЬЮ", "UNDO": "ОТМЕНА", "REDO": "ПОВТОР", "MODE": "РЕЖИМ", "BASE TERRAIN": "БАЗОВЫЙ ТЕРРЕЙН", "ISLAND": "ОСТРОВ", "ARCHIPELAGO": "АРХИПЕЛАГ", "SQUARE": "КВАДРАТ", "BLANK OCEAN": "ПУСТОЙ ОКАН", "sea floor": "дно моря", "land base": "базовая высота суши", "maximum peak": "максимальная вершина", "terrain size": "размер террейна", "SCULPT TOOL": "ИНСТРУМЕНТ СКУЛЬПТА", "MOUNTAIN RANGE": "ХРЕБЕТ", "RAISE": "ПОДНЯТЬ", "LOWER": "ОПУСТИТЬ", "LOWLAND": "НИЗМЕННОСТЬ", "COAST / BEACH": "БЕРЕГ / ПЛЯЖ", "RIVER / VALLEY": "РЕКА / ДОЛИНА", "SMOOTH": "СГЛАДИТЬ", "CARVE SEA": "ВЫРЕЗАТЬ МОРЕ", "brush radius": "радиус кисти", "strength": "сила", "ridge sharpness": "острота хребта", "lowland target": "цель низменности", "MATERIAL MASK": "МАСКА МАТЕРИАЛОВ", "R · ROCK": "R · КАМЕНЬ", "G · SEDIMENT": "G · ОСАДОК", "B · VEGETATION": "B · РАСТИТЕЛЬНОСТЬ", "RESTORE AUTO": "ВЕРНУТЬ АВТО", "REBUILD AUTO": "ПЕРЕСОБРАТЬ АВТО", "ERASE BLACK": "СТЕРЕТЬ ЧЁРНОЕ", "TREE": "ДЕРЕВЬЯ", "ADD TREES": "ДОБАВИТЬ ДЕРЕВЬЯ", "BLOCK TREES": "ЗАПРЕТИТЬ ДЕРЕВЬЯ", "ERASE MANUAL": "СТЕРЕТЬ РУЧНОЕ", "REGENERATE FOREST": "ПЕРЕГЕНЕРИРОВАТЬ ЛЕС", "CLEAR MANUAL EDITS": "ОЧИСТИТЬ РУЧНЫЕ ПРАВКИ", "RESET TO AUTO": "СБРОСИТЬ В АВТО", "forest coverage": "покрытие лесом", "forest patch size": "размер лесных массивов", "tree preview": "превью деревьев", "RELIEF + TREES": "РЕЛЬЕФ + ДЕРЕВЬЯ", "TREE MASK ONLY": "ТОЛЬКО МАСКА ДЕРЕВЬЕВ", "show tree distribution": "показывать распределение деревьев", "overlay opacity": "прозрачность наложения", "sand height limit": "предел высоты песка", "show 20 m terrain contours": "показывать контуры рельефа через 20 м", "show tree exclusions": "показать исключения деревьев", "refresh automatic mask after sculpting": "обновлять автоматическую маску после скульпта", "preview / Substrata height scale": "масштаб высоты превью / Substrata", "RESET VIEW": "СБРОС ВИДА", "HISTORY": "ИСТОРИЯ", "PROJECT": "ПРОЕКТ", "SAVE": "СОХРАНИТЬ", "LOAD": "ЗАГРУЗИТЬ", "EXPORT": "ЭКСПОРТ", "EXR": "EXR", "ZIP": "ZIP", "HEIGHT PREVIEW PNG": "ПРЕВЬЮ ВЫСОТЫ PNG", "TREE MASK PNG": "МАСКА ДЕРЕВЬЕВ PNG", "EXPORT COMPATIBILITY": "СОВМЕСТИМОСТЬ ЭКСПОРТА", "Substrata orientation · flip vertically": "Ориентация Substrata · отразить по вертикали", "TERRAIN ONLY": "ТОЛЬКО ТЕРРЕЙН", "MASK ONLY": "ТОЛЬКО МАСКА", "RELIEF + MASK": "РЕЛЬЕФ + МАСКА", "preview": "предпросмотр", "BUILD": "СТРОИТЬ", "SELECT": "ВЫБОР", "MOVE": "ПЕРЕМЕЩЕНИЕ", "ROTATE": "ПОВОРОТ", "SCALE": "МАСШТАБ", "WALL": "СТЕНА", "ROOM": "КОМНАТА", "ARC": "ДУГА", "COLUMN": "КОЛОННА", "VAULT": "СВОД", "DOME": "КУПОЛ", "PLANE": "ПЛОСКОСТЬ", "SLAB": "ПЛИТА", "ROOF": "КРЫША", "OPENING": "ПРОЁМ", "DOOR": "ДВЕРЬ", "WINDOW": "ОКНО", "FLOOR": "ПОЛ", "CEILING": "ПОТОЛОК", "DELETE": "УДАЛИТЬ", "DUPLICATE": "ДУБЛИРОВАТЬ", "GROUP": "ГРУППА", "FOCUS": "ФОКУС", "CLEAR": "ОЧИСТИТЬ", "CLEAR ALL": "ОЧИСТИТЬ ВСЁ", "CLEAR SCENE": "ОЧИСТИТЬ СЦЕНУ", "PAINT SURFACE": "КРАСИТЬ ПОВЕРХНОСТЬ", "APPLY TO SELECTION": "ПРИМЕНИТЬ К ВЫБОРУ", "CENTER ON FLOOR": "ЦЕНТР НА ПОЛ", "WORLD": "МИР", "CENTER": "ЦЕНТР", "GLB": "GLB", "JSON": "JSON", "DOWNLOAD": "СКАЧАТЬ", "CONCRETE": "БЕТОН", "WOOD": "ДЕРЕВО", "CLAY / TERRACOTTA": "ГЛИНА / ТЕРРАКОТА", "METAL": "МЕТАЛЛ", "STONE": "КАМЕНЬ", "PLASTER": "ШТУКАТУРКА", "GENERATE": "СГЕНЕРИРОВАТЬ", "RANDOMIZE": "СЛУЧАЙНО", "BASE COLOR": "БАЗОВЫЙ ЦВЕТ", "NORMAL": "NORMAL", "ORM": "ORM", "LOAD SLOT": "ЗАГРУЗИТЬ СЛОТ", "UPDATE SLOT": "ОБНОВИТЬ СЛОТ", "ADD AS CUSTOM MATERIAL": "ДОБАВИТЬ КАК СВОЙ МАТЕРИАЛ", "ADD SLOT": "ДОБАВИТЬ СЛОТ", "MAPS ZIP": "ZIP КАРТ", "LIVE MATERIAL PREVIEW": "ЖИВОЙ ПРЕВЬЮ МАТЕРИАЛА", "MATERIAL": "МАТЕРИАЛ", "TEXTURE MAPS": "КАРТЫ ТЕКСТУР", "COUCH": "ДИВАН", "CHAIR": "СТУЛ", "TABLE / DESK": "СТОЛ / ПАРТА", "BED": "КРОВАТЬ", "DIMENSIONS": "РАЗМЕРЫ", "CONSTRUCTION": "КОНСТРУКЦИЯ", "MATERIAL ROLES": "РОЛИ МАТЕРИАЛОВ", "PRIMARY": "ОСНОВНОЙ", "SECONDARY": "ВТОРИЧНЫЙ", "ACCENT": "АКЦЕНТ", "FRAME": "РАМА", "GLASS": "СТЕКЛО", "BLANKET": "ОДЕЯЛО", "PILLOWS": "ПОДУШКИ", "TYPE": "ТИП", "VIEW": "ВИД", "SCENE": "СЦЕНА", "FIT / ISO": "ВПИСАТЬ / ISO", "FRONT": "СПЕРЕДИ", "SIDE": "СБОКУ", "IMPORT MATERIALS FROM PROJECT": "ИМПОРТ МАТЕРИАЛОВ ИЗ ПРОЕКТА", "CREATE": "СОЗДАТЬ", "CREATE STRUCTURE": "СОЗДАТЬ СТРУКТУРУ", "BUILD MATERIAL": "МАТЕРИАЛ СТРОЙКИ", "Light BG": "Светлый фон", "Dark BG": "Тёмный фон", "LIGHT BG": "СВЕТЛЫЙ ФОН", "DARK BG": "ТЁМНЫЙ ФОН", "PARAMETERS": "ПАРАМЕТРЫ", "TOOL PARAMETERS": "ПАРАМЕТРЫ ИНСТРУМЕНТА", "SELECTION": "ВЫБОР", "OUTLINER": "АУТЛАЙНЕР", "REFERENCE UNDERLAY": "ПОДЛОЖКА", "GRID SNAP": "ПРИВЯЗКА К СЕТКЕ", "ANGLE SNAP": "ПРИВЯЗКА УГЛА", "LOCAL": "ЛОКАЛЬНО", "APPLY TO SELECTED": "ПРИМЕНИТЬ К ВЫБРАННОМУ", "CUT OPENING": "ВЫРЕЗАТЬ ПРОЁМ", "COPY AI INSTRUCTIONS": "КОПИРОВАТЬ ИНСТРУКЦИИ ИИ", "DANGER ZONE": "ОПАСНАЯ ЗОНА", "LOCKED": "ЗАБЛОКИРОВАНО", "ATOLL": "АТОЛЛ", "PENINSULA": "ПОЛУОСТРОВ", "FJORD": "ФЬОРД", "CANYON": "КАНЬОН", "CRATER": "КРАТЕР", "CONTINENT SHELF": "ШЕЛЬФ", "RANDOMIZE SEED": "СЛУЧАЙНЫЙ SEED", "REGENERATE": "ПЕРЕГЕНЕРИРОВАТЬ", "POST PASSES": "ПОСТОБРАБОТКА", "EROSION": "ЭРОЗИЯ", "TERRACES": "ТЕРРАСЫ", "DUNES": "ДЮНЫ", "pass strength": "сила прохода", "TRANSFORM": "ТРАНСФОРМАЦИЯ", "MIRROR H": "ЗЕРКАЛО H", "MIRROR V": "ЗЕРКАЛО V", "IMPORT": "ИМПОРТ", "IMPORT HEIGHTMAP PNG": "ИМПОРТ HEIGHTMAP PNG", "Grayscale PNG/JPEG as height. Black → sea floor, white → peak. Replaces current field.": "PNG/JPEG в градациях серого как карта высот. Чёрное → дно моря, белое → вершина. Заменяет текущее поле.", "seed": "seed", "SOFT RAISE": "МЯГКИЙ ПОДЪЁМ", "HARD RAISE": "ЖЁСТКИЙ ПОДЪЁМ", "SOFT LOWER": "МЯГКОЕ ОПУСКАНИЕ", "HARD LOWER": "ЖЁСТКОЕ ОПУСКАНИЕ", "PINCH": "СЖАТИЕ", "INFLATE": "НАДУТЬ", "DEFLATE": "СДУТЬ", "CLAY BUILD": "ГЛИНА", "BLOB": "СГУСТОК", "AMPLIFY": "УСИЛИТЬ", "DAMPEN": "ОСЛАБИТЬ", "POLISH": "ПОЛИРОВКА", "SHARPEN": "ЗАТОЧИТЬ", "PLATEAU": "ПЛАТО", "RAMP": "ПАНДУС", "WALL RIDGE": "СТЕНА-ХРЕБЕТ", "BASIN": "КОТЛОВИНА", "GORGE": "УЩЕЛЬЕ", "BERM": "ВАЛ", "SADDLE": "СЕДЛОВИНА", "NOTCH": "ВЫРЕЗ", "SHELF": "ШЕЛЬФ", "COVE": "БУХТА", "SPIT": "КОСА", "CHANNEL": "КАНАЛ", "DELTA": "ДЕЛЬТА", "DEPOSIT": "НАНОС", "TERRACE": "ТЕРРАСЫ", "STRIATE": "ШТРИХИ", "RIPPLE": "РЯБЬ", "SCRATCH": "ЦАРАПИНА", "CRACK": "ТРЕЩИНА", "POCKMARK": "ВЫБОИНЫ", "PEBBLE": "ГАЛЬКА", "WEATHER": "ВЫВЕТРИВАНИЕ", "GRAIN": "ЗЕРНО", "VOLCANO": "ВУЛКАН", "HILL": "ХОЛМ", "CONE": "КОНУС", "MESA": "МЕСА", "CALDERA": "КАЛЬДЕРА", "RIDGE BLOB": "ГРЯДА", "SPIRE": "ШПИЛЬ", "PYRAMID": "ПИРАМИДА", "BOWL": "ЧАША", "ARCH": "АРКА", "ATOLL RING": "КОЛЬЦО АТОЛЛА", "TWIN HILLS": "ДВА ХОЛМА", "TOR ROCKS": "СКАЛЫ-ТОРЫ", "RAMP STAMP": "ШТАМП ПАНДУС", "SYMMETRY": "СИММЕТРИЯ", "BRUSH PRESETS": "ПРЕСЕТЫ КИСТИ", "SAVE PRESET": "СОХРАНИТЬ ПРЕСЕТ", "LOAD PRESET": "ЗАГРУЗИТЬ ПРЕСЕТ", "MIRROR X": "ЗЕРКАЛО X", "MIRROR Y": "ЗЕРКАЛО Y", "RADIAL 4": "РАДИАЛ 4", "world size": "размер мира", "resolution": "разрешение", "SLOPE AUTO MASK": "МАСКА ПО УКЛОНУ", "paint land only": "рисовать только по суше", "paint sea only": "рисовать только по морю", "ROCK": "СКАЛА", "DIRT": "ГРУНТ", "SNOW": "СНЕГ", "TERRA GEN · Terrain Editor": "TERRA GEN · Редактор террейна", "REAL": "РЕАЛЬНЫЕ", "UNREAL": "ФАНТАСТИЧЕСКИЕ", "CLASSIC VOLCANIC": "КЛАССИЧЕСКИЙ ВУЛКАНИЧЕСКИЙ", "HIGH MOUNTAINOUS": "ВЫСОКИЙ ГОРНЫЙ", "LOW CORAL CAY": "НИЗКИЙ КОРАЛЛОВЫЙ ОСТРОВ", "BARRIER / LONG": "БАРЬЕРНЫЙ / ДЛИННЫЙ", "TWIN LINKED": "ДВА СВЯЗАННЫХ", "TABLE / MESA": "СТОЛОВЫЙ / МЕСА", "RIAS / DROWNED": "РИАСОВЫЙ / ЗАТОПЛЕННЫЙ", "SPIT / SANDBAR": "КОСА / ПЕСЧАНАЯ ОТМЕЛЬ", "ARCH ROCKS": "СКАЛЬНЫЕ АРКИ", "RING DONUT": "КОЛЬЦО", "CRESCENT": "ПОЛУМЕСЯЦ", "STAR": "ЗВЕЗДА", "SPIRAL": "СПИРАЛЬ", "SERPENT": "ЗМЕЯ", "SHATTERED": "ОСКОЛКИ", "CRYSTAL SPIRES": "КРИСТАЛЬНЫЕ ШПИЛИ", "CLIFF PLATEAU": "ПЛАТО С ОБРЫВАМИ", "MUSHROOM CAP": "ГРИБНАЯ ШЛЯПКА", "HEART": "СЕРДЦЕ", "SKY NEEDLE": "НЕБЕСНАЯ ИГЛА", "LAGOON CHAIN": "ЦЕПЬ ЛАГУН", "ISLAND · CLASSIC": "ОСТРОВ · КЛАССИЧЕСКИЙ", "Now: world 8192 m · grid 512² · export 1024 px. 1024 is EXR pixel size, not world meters.": "Сейчас: мир 8192 м · сетка 512² · экспорт 1024 px. 1024 — размер EXR в пикселях, а не метрах мира.", "Active symmetry mirrors each stroke across the map center.": "Активная симметрия отражает каждый штрих относительно центра карты.", "Drag continuously to draw connected mountain ranges.": "Ведите кисть непрерывно, чтобы рисовать связанные горные хребты.", "Metasiberia: R = detail 0 (камень), G = detail 1 (осадок/песок), B = detail 2 (растительность). Каждый пиксель маски нормализуется: сумма каналов равна 255. Деревья управляются отдельной чёрно-белой PNG-маской.": "Metasiberia: R = detail 0 (rock), G = detail 1 (sediment/sand), B = detail 2 (vegetation). Every mask pixel is normalized so the channel sum equals 255. Trees are controlled by a separate black-and-white PNG mask.", "Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. In Metasiberia, tree placement also requires the vegetation material channel (B / detail 2). ADD TREES now sets both masks together.": "Деревья используют отдельную непрозрачную чёрно-белую маску. Белое разрешает деревья, чёрное запрещает. В Metasiberia размещение деревьев также требует канала материала растительности (B / detail 2). Команда «Добавить деревья» теперь изменяет обе маски одновременно.", "This affects only the preview and recommended Substrata setting; exported height values remain in meters.": "Это влияет только на превью и рекомендуемую настройку Substrata; экспортируемые значения высоты остаются в метрах.", "EXR uses one float channel named Y. Material mask: R rock/detail 0, G sediment/detail 1, B vegetation/detail 2. Tree mask is an opaque grayscale PNG: white = trees, black = no trees.": "EXR использует один float-канал Y. Маска материалов: R — камень/detail 0, G — осадок/detail 1, B — растительность/detail 2. Маска деревьев — непрозрачный PNG в градациях серого: белое — деревья, чёрное — без деревьев.", "deep sea → coast → lowland → mountain": "глубокое море → берег → низменность → горы", "R rock · detail 0": "R камень · detail 0", "G sediment · detail 1": "G осадок · detail 1", "B vegetation · detail 2": "B растительность · detail 2", "trees allowed": "деревья разрешены", "open grass / detail 3": "открытая трава / detail 3", "ready · choose a base terrain": "готово · выберите базовый террейн", "world": "мир", "grid": "сетка", "export": "экспорт", "cell": "ячейка", "Hotkeys: 1-9 tools · [ ] radius · - = strength · wheel zoom · Alt+wheel radius": "Горячие клавиши: 1–9 — инструменты · [ ] — радиус · - = — сила · колесо — масштаб · Alt+колесо — радиус", "AUTO BY HEIGHT AND SLOPE": "АВТО ПО ВЫСОТЕ И УКЛОНУ", "map size (meters) — square side": "размер карты (метры) — сторона квадрата"};
+  Object.assign(RU,{"FORMS / TEMPLATES":"ФОРМЫ / ШАБЛОНЫ","CONTINENT":"КОНТИНЕНТ","VOLCANIC CONE":"ВУЛКАНИЧЕСКИЙ КОНУС","RIVER DELTA":"РЕЧНАЯ ДЕЛЬТА","VOLCANIC CHAIN":"ВУЛКАНИЧЕСКАЯ ЦЕПЬ","REEF ATOLL":"РИФОВЫЙ АТОЛЛ","BLANK OCEAN":"ПУСТОЙ ОКЕАН"});
   const EN=Object.fromEntries(Object.entries(RU).map(([k,v])=>[v,k]));
   const ID_TIPS_EN={"lang_en": "Switch interface to English", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Edit terrain height with sculpting tools", "tabMask": "Edit the RGB material distribution mask", "tabTrees": "Edit areas where trees are allowed or forbidden", "tab3d": "Open the interactive 3D terrain preview", "undoTop": "Undo the last terrain, material, or tree edit", "redoTop": "Redo the last undone edit", "zoomOut2d": "Zoom out of the 2D map", "zoomIn2d": "Zoom into the 2D map", "resetView": "Reset the current 2D or 3D view", "saveProject": "Save the editable Terrain Gen project as JSON", "loadProject": "Load a previously saved Terrain Gen project", "exportEXR": "Export the floating-point EXR heightmap", "exportMask": "Export the RGB material mask PNG", "exportTrees": "Export the black-and-white tree permission mask PNG", "exportBundle": "Export EXR, masks, preview, project, and README in one ZIP", "btnRandomize": "Choose a new random terrain seed and regenerate", "btnRegenBase": "Regenerate the selected base terrain using the current settings", "btnErode": "Apply an erosion pass to the entire terrain", "btnTerraces": "Quantize terrain heights into terraces", "btnDunes": "Add dune-like relief to suitable low areas", "btnNoisePass": "Add procedural fine detail across the terrain", "btnMirrorH": "Mirror the full project horizontally", "btnMirrorV": "Mirror the full project vertically", "btnImportHeight": "Replace the terrain with an imported grayscale image", "symMirrorX": "Mirror each sculpt stroke across the vertical map axis", "symMirrorY": "Mirror each sculpt stroke across the horizontal map axis", "symRadial": "Repeat each sculpt stroke four times around the map center", "presetSave": "Save the current sculpt brush settings as a preset", "presetLoad": "Load the selected sculpt brush preset", "regenMask": "Rebuild the automatic material mask from terrain height and slope", "slopeAuto": "Assign materials automatically using height and steepness", "treeGenerateAuto": "Generate a new natural distribution of forest patches", "treeResetAuto": "Remove all manual tree edits and return to the automatic mask", "exportHeightPNG": "Export a grayscale PNG preview of the heightmap", "pSea": "Set the minimum seabed elevation", "pLand": "Set the base elevation of generated land", "pPeak": "Set the maximum generated and sculpted height", "pSeed": "Set the procedural terrain seed", "pPass": "Set the strength of global post-processing passes", "pWorldSize": "Choose the physical width and depth of the terrain in meters", "pResolution": "Choose the internal sculpting grid resolution", "pExportSize": "Choose the pixel resolution of all exported maps", "pRadius": "Set the sculpt brush radius", "pStrength": "Set the sculpt brush strength in meters", "pSharp": "Set the sharpness of the mountain ridge profile", "pLow": "Set the target elevation for level-based sculpt tools", "autoMask": "Automatically update unpainted material regions after sculpting", "pMaskRadius": "Set the material painting brush radius", "maskLandOnly": "Restrict material painting to land", "maskSeaOnly": "Restrict material painting to sea", "maskPreviewMode": "Choose how the material mask is displayed", "pMaskOpacity": "Set material overlay opacity", "showContours": "Show height contour lines every 20 meters", "pSandLimit": "Set the height threshold used for sediment and beach material", "pTreeRadius": "Set the tree-mask brush radius", "pTreeDensity": "Set the amount of land covered by generated forest", "pTreePatch": "Set the average size and continuity of forest patches", "pHeightScale": "Change only the vertical scale of the 3D preview", "flipY": "Flip all exported maps vertically for Substrata or Metasiberia orientation compatibility", "projectFile": "Choose a Terrain Gen project file", "heightmapFile": "Choose a grayscale image to import as terrain height"};
   const ID_TIPS_RU={"lang_en": "Переключить интерфейс на английский язык", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Редактировать высоту террейна инструментами скульпта", "tabMask": "Редактировать RGB-маску распределения материалов", "tabTrees": "Редактировать области, где деревья разрешены или запрещены", "tab3d": "Открыть интерактивное 3D-превью террейна", "undoTop": "Отменить последнее изменение рельефа, материалов или деревьев", "redoTop": "Повторить последнее отменённое изменение", "zoomOut2d": "Уменьшить масштаб 2D-карты", "zoomIn2d": "Увеличить масштаб 2D-карты", "resetView": "Сбросить текущий 2D- или 3D-вид", "saveProject": "Сохранить редактируемый проект Terrain Gen в JSON", "loadProject": "Загрузить ранее сохранённый проект Terrain Gen", "exportEXR": "Экспортировать карту высот EXR с плавающей точкой", "exportMask": "Экспортировать RGB-маску материалов PNG", "exportTrees": "Экспортировать чёрно-белую маску разрешения деревьев PNG", "exportBundle": "Экспортировать EXR, маски, превью, проект и README одним ZIP-архивом", "btnRandomize": "Выбрать новый случайный seed и перегенерировать террейн", "btnRegenBase": "Перегенерировать выбранный базовый террейн с текущими настройками", "btnErode": "Применить эрозию ко всему рельефу", "btnTerraces": "Преобразовать высоты рельефа в террасы", "btnDunes": "Добавить дюнообразный рельеф на подходящих низких участках", "btnNoisePass": "Добавить процедурные мелкие детали по всему рельефу", "btnMirrorH": "Отразить весь проект по горизонтали", "btnMirrorV": "Отразить весь проект по вертикали", "btnImportHeight": "Заменить террейн импортированным изображением в градациях серого", "symMirrorX": "Отражать каждый штрих скульпта относительно вертикальной оси карты", "symMirrorY": "Отражать каждый штрих скульпта относительно горизонтальной оси карты", "symRadial": "Повторять каждый штрих четыре раза вокруг центра карты", "presetSave": "Сохранить текущие настройки кисти как пресет", "presetLoad": "Загрузить выбранный пресет кисти", "regenMask": "Пересобрать автоматическую маску материалов по высоте и уклону", "slopeAuto": "Автоматически назначить материалы по высоте и крутизне", "treeGenerateAuto": "Создать новое естественное распределение лесных массивов", "treeResetAuto": "Удалить все ручные правки деревьев и вернуть автоматическую маску", "exportHeightPNG": "Экспортировать чёрно-белое PNG-превью карты высот", "pSea": "Задать минимальную высоту морского дна", "pLand": "Задать базовую высоту генерируемой суши", "pPeak": "Задать максимальную высоту генерации и скульпта", "pSeed": "Задать seed процедурной генерации террейна", "pPass": "Задать силу глобальных постпроходов", "pWorldSize": "Выбрать физическую ширину и глубину террейна в метрах", "pResolution": "Выбрать внутреннее разрешение сетки скульпта", "pExportSize": "Выбрать разрешение всех экспортируемых карт в пикселях", "pRadius": "Задать радиус кисти скульпта", "pStrength": "Задать силу кисти скульпта в метрах", "pSharp": "Задать остроту профиля горного хребта", "pLow": "Задать целевую высоту для уровневых инструментов", "autoMask": "Автоматически обновлять незакрашенные области маски материалов после скульпта", "pMaskRadius": "Задать радиус кисти материалов", "maskLandOnly": "Ограничить рисование материалов только сушей", "maskSeaOnly": "Ограничить рисование материалов только морем", "maskPreviewMode": "Выбрать режим отображения маски материалов", "pMaskOpacity": "Задать прозрачность наложения материалов", "showContours": "Показывать линии высот через каждые 20 метров", "pSandLimit": "Задать высотный порог для осадка и пляжа", "pTreeRadius": "Задать радиус кисти маски деревьев", "pTreeDensity": "Задать долю суши, покрываемую сгенерированным лесом", "pTreePatch": "Задать средний размер и связность лесных массивов", "pHeightScale": "Изменить только вертикальный масштаб 3D-превью", "flipY": "Отразить все экспортируемые карты по вертикали для совместимости ориентации Substrata или Metasiberia", "projectFile": "Выбрать файл проекта Terrain Gen", "heightmapFile": "Выбрать изображение в градациях серого для импорта высот"};
