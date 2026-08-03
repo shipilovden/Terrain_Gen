@@ -226,8 +226,12 @@ aside[data-drawer="export"] #exportSettings{display:block}
 .icon-button svg{width:16px;height:16px;flex:none;stroke-width:1.8}
 .icon-label{display:inline}
 body.icons-ready .icon-button .icon-label{display:none}
-.tool-menu .tool-list .icon-button{min-height:34px;padding:6px 4px}
+.tool-menu .tool-list .icon-button{min-height:38px;padding:6px 7px;justify-content:flex-start;text-align:left}
 .tool-menu .tool-list .icon-button svg{width:17px;height:17px}
+body.icons-ready .tool-menu .tool-list .icon-button .icon-label{
+  display:inline;min-width:0;line-height:1.15;white-space:normal;overflow-wrap:anywhere
+}
+body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
 @media(max-width:800px){
   aside.drawer-shell{width:min(350px,calc(100vw - 10px))}
   main.map-layout .workspace{margin-left:min(350px,calc(100vw - 10px))}
@@ -248,6 +252,17 @@ body.icons-ready .icon-button .icon-label{display:none}
 .map-settings-note{border-left:2px solid var(--gold2);padding-left:8px}
 .map-drawer-actions{display:flex;justify-content:flex-end;margin-bottom:8px}
 .map-drawer-actions button{width:100%;justify-content:flex-start}
+.map-search-tools{margin:10px 0;padding:8px;border:1px solid var(--line);background:#0d1014}
+.map-search-tools h2{margin:0 0 7px}
+.map-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px}
+.map-search-row input{min-width:0;width:100%;padding:8px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;outline:none}
+.map-search-row input:focus{border-color:var(--gold)}
+.map-search-row button{min-width:84px}
+.map-search-results{display:flex;flex-direction:column;gap:3px;margin-top:5px;max-height:160px;overflow:auto}
+.map-search-results:empty{display:none}
+.map-search-result{width:100%;padding:7px 8px;text-align:left;line-height:1.3;text-transform:none;letter-spacing:.2px}
+.map-search-result:hover,.map-search-result:focus{border-color:var(--gold);color:var(--gold)}
+.map-search-status{margin-top:6px;min-height:1.35em}
 .map-settings-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:8px 0}
 .map-settings-actions .wide{grid-column:1/-1}
 .map-mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:5px}
@@ -261,6 +276,8 @@ body.icons-ready .icon-button .icon-label{display:none}
 .compass-cardinal{position:absolute;font-size:9px;line-height:1;color:var(--dim);transform:translate(-50%,-50%);text-shadow:0 1px 2px #000}
 .compass-cardinal.north{color:var(--gold);font-weight:700}
 .map-selection-summary{min-height:2.8em;padding:7px 8px;border:1px solid var(--line);background:#0d1014;color:var(--txt)}
+.map-island-option{margin-top:6px;padding:8px;border:1px solid var(--line);background:#0d1014;align-items:flex-start}
+.map-island-option label{line-height:1.35;color:var(--txt)}
 .map-view-tools{margin:12px 0 10px;padding-top:1px;border-top:1px solid var(--line)}
 .map-view-tools h2{margin-top:8px}
 .map-source{font-size:10px;color:var(--dim);line-height:1.45;margin-top:8px}
@@ -441,6 +458,12 @@ body.icons-ready .icon-button .icon-label{display:none}
     <div class="map-drawer-actions"><button type="button" id="mapBack" class="icon-button"><i data-lucide="arrow-left"></i><span class="icon-label">BACK TO EDITOR</span></button></div>
     <h2>REAL MAP · SELECT AREA</h2>
     <div class="map-settings-note mini" id="mapInstruction">Choose a tool, outline an area on the map, then import its elevation into the editor.</div>
+    <div class="map-search-tools">
+      <h2>SEARCH MAP</h2>
+      <div class="map-search-row"><input id="mapSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Place, city, or address"><button type="button" id="mapSearchButton" class="map-control-labeled">SEARCH</button></div>
+      <div class="mini map-search-status" id="mapSearchStatus" aria-live="polite">Enter a place or address.</div>
+      <div class="map-search-results" id="mapSearchResults" role="listbox"></div>
+    </div>
     <div class="field"><label>selection tool</label><div class="map-mode-toggle">
       <button type="button" id="mapRectangleMode">RECTANGLE</button>
       <button type="button" id="mapPolygonMode" class="on">POLYGON</button>
@@ -454,6 +477,7 @@ body.icons-ready .icon-button .icon-label{display:none}
     </div>
     <div class="mini map-selection-summary" id="mapSelectionSummary">No area selected.</div>
     <div class="sect map-view-tools"><h2>MAP VIEW</h2><div class="grid2">
+      <button type="button" id="mapLayerMode" class="wide map-control-labeled">BASEMAP · STREETS</button>
       <button type="button" id="mapResetView" class="wide">CENTER MAP</button>
     </div></div>
     <div class="field"><label>height mapping</label><select id="mapHeightMode">
@@ -466,8 +490,9 @@ body.icons-ready .icon-button .icon-label{display:none}
       <option value="512">512 × 512 · detailed</option>
     </select></div>
     <button type="button" id="mapImport" class="wide primary">ADD TO TERRAIN EDITOR</button>
+    <div class="row map-island-option"><input id="mapMakeIsland" type="checkbox" checked><label for="mapMakeIsland">MAKE ISLAND FROM SELECTED AREA</label></div>
     <div class="mini map-status" id="mapStatus">Ready to draw an area.</div>
-    <div class="map-source">Map tiles: <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">© OpenFreeMap</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>.<br>Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Mapzen Terrarium / AWS Open Data</a>.<br>Fallback: <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.</div>
+    <div class="map-source">Map layers: <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">© OpenFreeMap</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noreferrer">© Esri World Imagery</a> · <a href="https://www.opentopomap.org/about" target="_blank" rel="noreferrer">© OpenTopoMap</a>.<br>Search: <a href="https://github.com/komoot/photon" target="_blank" rel="noreferrer">Photon</a> / OpenStreetMap.<br>Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Mapzen Terrarium / AWS Open Data</a>.<br>Fallback: <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.</div>
   </div>
 
   <details class="setup-block context-height drawer-section" id="heightSettings" data-drawer-section="sculpt">
@@ -625,6 +650,7 @@ body.icons-ready .icon-button .icon-label{display:none}
     <div class="param"><label>forest patch size <b id="vTreePatch">55%</b></label><input id="pTreePatch" type="range" min="10" max="100" value="55"></div>
     <select id="treePreviewMode" hidden><option value="mask" selected>TREE MASK ONLY</option></select>
     <input id="showTreeOverlay" type="checkbox" checked hidden>
+    <div class="row"><input id="showTreeContours" type="checkbox" checked><label for="showTreeContours">show 20 m terrain contours</label></div>
     <div class="mini">Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. In Metasiberia, tree placement also requires the vegetation material channel (B / detail 2). ADD TREES now sets both masks together.</div>
   </div>
 
@@ -721,8 +747,12 @@ let tool='mountain',maskTool='r',mode='height',drawing=false,lastPt=null;
 let undoStack=[],redoStack=[],dirty3d=true,baseTemplate='island',islandKind='classic',terrainSeed=42,forestSeed=104729;
 let symMirrorX=false,symMirrorY=false,symRadial=0;
 let activeSculptPeak=0,strokeStartMax=0,strokeSamples=0,visualPeak=0;
-let geoMap=null,geoMapReady=false,geoMode='polygon',geoPoints=[],geoSelectionClosed=false,geoLayer=null,geoDrawing=false,geoStartLatLng=null,geoPanning=false,geoPanLast=null,geoImporting=false,geoSourceMeta=null,geoPreviousMode='height';
+let geoMap=null,geoMapReady=false,geoMode='polygon',geoPoints=[],geoSelectionClosed=false,geoSelectionMode=null,geoLayer=null,geoDrawing=false,geoStartLatLng=null,geoPanning=false,geoPanLast=null,geoImporting=false,geoSourceMeta=null,geoPreviousMode='height';
 let geoRasterLayer=null,geoVectorLayer=null,geoMapLibre=null,geoVectorLoading=null,geoMapLanguage='en';
+const GEO_BASEMAP_ORDER=['streets','satellite','topographic'];
+let geoBasemapMode=GEO_BASEMAP_ORDER.includes(store.getItem('terra-gen-basemap'))?store.getItem('terra-gen-basemap'):'streets';
+let geoSearchMarker=null,geoSearchController=null,geoSearchRequest=0,geoSearchLastAt=0;
+const geoSearchCache=new Map();
 const GEO_DEFAULT_VIEW={center:[55.7558,37.6173],zoom:6};
 
 const cv=$('paintCanvas'),ctx=cv.getContext('2d'); let display=ctx.createImageData(G,G);
@@ -1773,7 +1803,7 @@ function renderGeoSelection(){
   setGeoStatus(progress+' · '+widthKm.toFixed(1)+' × '+heightKm.toFixed(1)+' km');
 }
 function clearGeoSelection(){
-  geoPoints=[];geoSelectionClosed=false;geoDrawing=false;geoStartLatLng=null;
+  geoPoints=[];geoSelectionClosed=false;geoSelectionMode=null;geoDrawing=false;geoStartLatLng=null;
   if(geoLayer){geoLayer.remove();geoLayer=null;}
   syncGeoMapDragging();
   setGeoStatus('Ready to draw an area.');
@@ -1782,6 +1812,7 @@ function finishGeoSelection(){
   geoDrawing=false;
   geoStartLatLng=null;syncGeoMapDragging();
   if(geoPoints.length<3){setGeoStatus('Add at least 3 points to close the area.');return false;}
+  if(!geoSelectionMode&&['rectangle','polygon','freehand'].includes(geoMode))geoSelectionMode=geoMode;
   geoSelectionClosed=true;
   renderGeoSelection();
   return true;
@@ -1807,6 +1838,7 @@ function setGeoMode(next){
 function handleGeoClick(e){
   if(geoMode!=='polygon'||geoDrawing)return;
   if(geoSelectionClosed)clearGeoSelection();
+  if(!geoPoints.length)geoSelectionMode='polygon';
   const p=e.latlng;
   if(geoPoints.length>=3){
     const first=geoMap.latLngToContainerPoint(geoPoints[0]),current=geoMap.latLngToContainerPoint(p);
@@ -1825,7 +1857,7 @@ function handleGeoDown(e){
   if(geoMode==='pan')return;
   if(!['freehand','rectangle'].includes(geoMode)||geoSelectionClosed||e.originalEvent?.button!==0)return;
   if(geoPoints.length)clearGeoSelection();
-  geoDrawing=true;geoStartLatLng=e.latlng;geoPoints=[e.latlng];
+  geoDrawing=true;geoSelectionMode=geoMode;geoStartLatLng=e.latlng;geoPoints=[e.latlng];
   geoMap.dragging.disable();
   if(e.originalEvent)L.DomEvent.stop(e.originalEvent);
   renderGeoSelection();
@@ -1857,6 +1889,57 @@ function handleGeoUp(){
   if(geoDrawing)finishGeoSelection();
 }
 const GEO_VECTOR_STYLE='https://tiles.openfreemap.org/styles/liberty';
+const GEO_RASTER_BASEMAPS={
+  streets:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',options:{maxZoom:19,crossOrigin:true}},
+  satellite:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',options:{maxNativeZoom:19,maxZoom:21,crossOrigin:true}},
+  topographic:{url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',options:{subdomains:'abc',maxNativeZoom:17,maxZoom:19,crossOrigin:true}}
+};
+function geoBasemapTitle(mode){return mode==='satellite'?'SATELLITE':mode==='topographic'?'TOPOGRAPHIC':'STREETS';}
+function updateGeoBasemapButton(){
+  const button=$('mapLayerMode');if(!button)return;
+  const english='BASEMAP · '+geoBasemapTitle(geoBasemapMode);
+  const text=window.terraGenTranslate?.(english,document.documentElement.lang)||english;
+  const label=button.querySelector('.icon-label');if(label)label.textContent=text;else button.textContent=text;
+  button.dataset.mode=geoBasemapMode;button.setAttribute('aria-label',text);
+}
+window.terraGenUpdateBasemapButton=updateGeoBasemapButton;
+function createGeoRasterBasemap(mode){
+  const config=GEO_RASTER_BASEMAPS[mode]||GEO_RASTER_BASEMAPS.streets;
+  return L.tileLayer(config.url,config.options);
+}
+function bringGeoOverlaysToFront(){
+  try{geoLayer?.bringToFront?.();geoSearchMarker?.bringToFront?.();}catch(error){}
+}
+function activateGeoVectorBasemap(){
+  if(!geoMapReady||!geoVectorLayer||geoBasemapMode!=='streets')return;
+  if(!geoMap.hasLayer(geoVectorLayer))geoVectorLayer.addTo(geoMap);
+  geoMapLibre=geoVectorLayer.getMaplibreMap();
+  const ready=()=>{
+    if(geoBasemapMode!=='streets')return;
+    updateGeoMapLanguage(geoMapLanguage);
+    if(geoRasterLayer&&geoMap.hasLayer(geoRasterLayer)){geoMap.removeLayer(geoRasterLayer);geoRasterLayer=null;}
+    bringGeoOverlaysToFront();
+  };
+  if(geoMapLibre?.isStyleLoaded?.())ready();else geoMapLibre?.once?.('load',ready);
+}
+async function setGeoBasemap(next,announce=true){
+  if(!GEO_BASEMAP_ORDER.includes(next))next='streets';
+  geoBasemapMode=next;store.setItem('terra-gen-basemap',next);updateGeoBasemapButton();
+  if(!geoMapReady)return;
+  if(geoVectorLayer&&geoMap.hasLayer(geoVectorLayer)){geoMap.removeLayer(geoVectorLayer);geoMapLibre=null;}
+  if(geoRasterLayer&&geoMap.hasLayer(geoRasterLayer))geoMap.removeLayer(geoRasterLayer);
+  geoRasterLayer=null;
+  if(next==='streets'){
+    geoRasterLayer=createGeoRasterBasemap('streets').addTo(geoMap);
+    await ensureGeoVectorBasemap();
+  }else geoRasterLayer=createGeoRasterBasemap(next).addTo(geoMap);
+  bringGeoOverlaysToFront();
+  if(announce&&$('status'))$('status').textContent='map view · '+geoBasemapTitle(next);
+}
+function cycleGeoBasemap(){
+  const index=GEO_BASEMAP_ORDER.indexOf(geoBasemapMode);
+  setGeoBasemap(GEO_BASEMAP_ORDER[(index+1)%GEO_BASEMAP_ORDER.length]);
+}
 function loadGeoStylesheet(id,href){
   if(document.getElementById(id))return;
   const link=document.createElement('link');link.id=id;link.rel='stylesheet';link.href=href;document.head.appendChild(link);
@@ -1889,20 +1972,16 @@ function updateGeoMapLanguage(lang=document.documentElement.lang){
 }
 window.terraGenUpdateMapLanguage=updateGeoMapLanguage;
 async function ensureGeoVectorBasemap(){
-  if(geoVectorLayer)return geoVectorLayer;
+  if(geoVectorLayer){activateGeoVectorBasemap();return geoVectorLayer;}
   if(geoVectorLoading)return geoVectorLoading;
   geoVectorLoading=(async()=>{
     loadGeoStylesheet('maplibreCss','https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css');
     if(!window.maplibregl)await loadGeoScript('maplibreScript','https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js');
     if(!window.L?.maplibreGL)await loadGeoScript('maplibreLeafletScript','https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js');
     if(!geoMapReady||!window.L?.maplibreGL)throw Error('vector map renderer is unavailable');
-    geoVectorLayer=L.maplibreGL({style:GEO_VECTOR_STYLE}).addTo(geoMap);
-    geoMapLibre=geoVectorLayer.getMaplibreMap();
-    const ready=()=>{
-      updateGeoMapLanguage(geoMapLanguage);
-      if(geoRasterLayer&&geoMap.hasLayer(geoRasterLayer))geoMap.removeLayer(geoRasterLayer);
-    };
-    if(geoMapLibre.isStyleLoaded?.())ready();else geoMapLibre.once('load',ready);
+    if(geoBasemapMode!=='streets'){geoVectorLoading=null;return null;}
+    geoVectorLayer=L.maplibreGL({style:GEO_VECTOR_STYLE});
+    activateGeoVectorBasemap();
     return geoVectorLayer;
   })().catch(error=>{console.warn('Vector basemap unavailable; keeping raster fallback.',error);geoVectorLoading=null;return null;});
   return geoVectorLoading;
@@ -1911,14 +1990,13 @@ function initGeoMap(){
   if(geoMapReady){setTimeout(()=>geoMap.invalidateSize(),0);return geoMap;}
   if(!window.L){setGeoStatus('Map library unavailable · check the network connection.');return null;}
   geoMap=L.map('realMap',{doubleClickZoom:false,worldCopyJump:true,zoomControl:false,attributionControl:false}).setView(GEO_DEFAULT_VIEW.center,GEO_DEFAULT_VIEW.zoom);
-  geoRasterLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>'}).addTo(geoMap);
   geoMap.on('click',handleGeoClick);
   geoMap.on('mousedown',handleGeoDown);
   geoMap.on('mousemove',handleGeoMove);
   geoMap.on('contextmenu',e=>{if(e.originalEvent)L.DomEvent.preventDefault(e.originalEvent);});
   geoMapReady=true;
   geoMapLanguage=document.documentElement.lang==='ru'?'ru':'en';
-  ensureGeoVectorBasemap();
+  setGeoBasemap(geoBasemapMode,false);
   syncGeoMapDragging();
   setTimeout(()=>geoMap.invalidateSize(),0);
   setGeoStatus('Click points on the map, then finish the area.');
@@ -1960,9 +2038,87 @@ $('mapBack').onclick=backFromGeoMap;
 $('mapFinish').onclick=finishGeoSelection;
 $('mapUndoPoint').onclick=undoGeoPoint;
 $('mapClear').onclick=clearGeoSelection;
+$('mapLayerMode').onclick=cycleGeoBasemap;
 $('mapZoomOut').onclick=()=>geoMapReady&&geoMap.zoomOut();
 $('mapZoomIn').onclick=()=>geoMapReady&&geoMap.zoomIn();
 $('mapResetView').onclick=()=>geoMapReady&&geoMap.setView(GEO_DEFAULT_VIEW.center,GEO_DEFAULT_VIEW.zoom);
+function setGeoSearchStatus(text){
+  const message=window.terraGenTranslate?.(String(text),document.documentElement.lang)||String(text);
+  if($('mapSearchStatus'))$('mapSearchStatus').textContent=message;
+}
+function geoSearchFeatureLabel(feature){
+  const properties=feature?.properties||{};
+  const street=[properties.street,properties.housenumber].filter(Boolean).join(' ');
+  const values=[properties.name,street,properties.city,properties.county,properties.state,properties.country];
+  const seen=new Set(),parts=[];
+  for(const value of values){
+    const text=String(value||'').trim(),key=text.toLocaleLowerCase();
+    if(!text||seen.has(key))continue;
+    seen.add(key);parts.push(text);
+  }
+  return parts.slice(0,4).join(' · ')||'Map result';
+}
+function focusGeoSearchResult(feature){
+  if(!geoMapReady)return;
+  const coordinates=feature?.geometry?.coordinates||[],lng=Number(coordinates[0]),lat=Number(coordinates[1]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+  const extent=feature?.properties?.extent;
+  if(Array.isArray(extent)&&extent.length===4&&extent.every(Number.isFinite)){
+    const west=Math.min(extent[0],extent[2]),east=Math.max(extent[0],extent[2]);
+    const south=Math.min(extent[1],extent[3]),north=Math.max(extent[1],extent[3]);
+    geoMap.fitBounds([[south,west],[north,east]],{padding:[34,34],maxZoom:15});
+  }else geoMap.setView([lat,lng],Math.max(13,geoMap.getZoom()));
+  if(geoSearchMarker)geoSearchMarker.remove();
+  geoSearchMarker=L.circleMarker([lat,lng],{radius:7,color:'#0b0d10',weight:2,fillColor:'#d4a017',fillOpacity:1,bubblingMouseEvents:false}).addTo(geoMap);
+  const label=geoSearchFeatureLabel(feature),tooltip=document.createElement('span');tooltip.textContent=label;
+  geoSearchMarker.bindTooltip(tooltip,{direction:'top',offset:[0,-6]});
+  bringGeoOverlaysToFront();setGeoSearchStatus('Map centered on · '+label);
+}
+function renderGeoSearchResults(features){
+  const container=$('mapSearchResults');if(!container)return;
+  container.innerHTML='';
+  if(!features.length){setGeoSearchStatus('Nothing found.');return;}
+  features.forEach(feature=>{
+    const button=document.createElement('button');button.type='button';button.className='map-search-result';button.setAttribute('role','option');
+    button.textContent=geoSearchFeatureLabel(feature);
+    button.addEventListener('click',()=>focusGeoSearchResult(feature));
+    container.appendChild(button);
+  });
+  setGeoSearchStatus(features.length+' results');
+}
+async function searchGeoMap(){
+  const input=$('mapSearchInput'),button=$('mapSearchButton'),query=String(input?.value||'').trim();
+  if(query.length<2){setGeoSearchStatus('Enter a place or address.');input?.focus();return;}
+  const language=document.documentElement.lang==='ru'?'ru':'en',cacheKey=language+'|'+query.toLocaleLowerCase();
+  geoSearchController?.abort();const request=++geoSearchRequest;
+  if(geoSearchCache.has(cacheKey)){renderGeoSearchResults(geoSearchCache.get(cacheKey));return;}
+  if(button)button.disabled=true;setGeoSearchStatus('Searching…');
+  try{
+    const delay=Math.max(0,900-(Date.now()-geoSearchLastAt));if(delay)await geoWait(delay);
+    if(request!==geoSearchRequest)return;
+    geoSearchLastAt=Date.now();geoSearchController=new AbortController();
+    const params=new URLSearchParams({q:query,limit:'6'});
+    // Photon currently rejects lang=ru with HTTP 400. Without the parameter it
+    // returns local OSM names (Russian in Russia); explicit English is supported.
+    if(language==='en')params.set('lang','en');
+    const requestOptions={headers:{Accept:'application/json'},signal:geoSearchController.signal};
+    let response=await fetch('https://photon.komoot.io/api/?'+params.toString(),requestOptions);
+    // Keep search resilient if the provider changes its accepted language list.
+    if(response.status===400&&params.has('lang')){
+      params.delete('lang');
+      response=await fetch('https://photon.komoot.io/api/?'+params.toString(),requestOptions);
+    }
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const data=await response.json(),features=Array.isArray(data?.features)?data.features:[];
+    if(geoSearchCache.size>=40)geoSearchCache.delete(geoSearchCache.keys().next().value);
+    geoSearchCache.set(cacheKey,features);renderGeoSearchResults(features);
+  }catch(error){
+    if(error?.name!=='AbortError'){console.warn('Map search failed',error);setGeoSearchStatus('Search failed · '+error.message);}
+  }finally{if(request===geoSearchRequest&&button)button.disabled=false;}
+}
+$('mapSearchButton').onclick=searchGeoMap;
+$('mapSearchInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();searchGeoMap();}});
+updateGeoBasemapButton();
 document.addEventListener('mouseup',handleGeoUp);
 
 function geoPointOnSegment(lng,lat,a,b){
@@ -2127,6 +2283,87 @@ function geoGridSample(values,size,u,v){
   const b=lerp(values[y1*size+x0],values[y1*size+x1],tx);
   return lerp(a,b,ty);
 }
+function geoBlurIslandMask(source,radiusX,radiusY,passes=3){
+  const width=G,rows=G,length=width*rows;
+  const rx=clamp(Math.round(radiusX),1,Math.max(1,width-1));
+  const ry=clamp(Math.round(radiusY),1,Math.max(1,rows-1));
+  let current=new Float32Array(source),vertical=new Float32Array(length);
+  const horizontal=new Float32Array(length),spanX=rx*2+1,spanY=ry*2+1;
+  for(let pass=0;pass<passes;pass++){
+    for(let y=0;y<rows;y++){
+      const row=y*width;let sum=0;
+      for(let sx=0;sx<=rx&&sx<width;sx++)sum+=current[row+sx];
+      for(let x=0;x<width;x++){
+        horizontal[row+x]=sum/spanX;
+        const remove=x-rx,add=x+rx+1;
+        if(remove>=0)sum-=current[row+remove];
+        if(add<width)sum+=current[row+add];
+      }
+    }
+    for(let x=0;x<width;x++){
+      let sum=0;
+      for(let sy=0;sy<=ry&&sy<rows;sy++)sum+=horizontal[sy*width+x];
+      for(let y=0;y<rows;y++){
+        vertical[y*width+x]=sum/spanY;
+        const remove=y-ry,add=y+ry+1;
+        if(remove>=0)sum-=horizontal[remove*width+x];
+        if(add<rows)sum+=horizontal[add*width+x];
+      }
+    }
+    const swap=current;current=vertical;vertical=swap;
+  }
+  return current;
+}
+function geoBuildIslandMask(north,south,west,east,padding){
+  const raw=new Float32Array(G*G),scale=Math.max(.01,1-padding*2);
+  let rasterized=false;
+  if(typeof document!=='undefined'){
+    try{
+      const maskCanvas=document.createElement('canvas');maskCanvas.width=G;maskCanvas.height=G;
+      const maskContext=maskCanvas.getContext('2d',{willReadFrequently:true});
+      if(maskContext&&geoPoints.length>=3){
+        const lonSpan=east-west||1e-12,latSpan=north-south||1e-12;
+        maskContext.beginPath();
+        geoPoints.forEach((point,index)=>{
+          const x=(padding+(point.lng-west)/lonSpan*scale)*(G-1);
+          const y=(padding+(north-point.lat)/latSpan*scale)*(G-1);
+          if(index)maskContext.lineTo(x,y);else maskContext.moveTo(x,y);
+        });
+        maskContext.closePath();maskContext.fillStyle='#fff';maskContext.fill();
+        const pixels=maskContext.getImageData(0,0,G,G).data;
+        for(let i=0;i<raw.length;i++)raw[i]=pixels[i*4+3]/255;
+        rasterized=true;
+      }
+    }catch(error){console.warn('Island mask rasterization fallback',error);}
+  }
+  if(!rasterized){
+    for(let y=0;y<G;y++){
+      const sourceV=(y/Math.max(1,G-1)-padding)/scale;
+      if(sourceV<0||sourceV>1)continue;
+      const lat=north-(north-south)*sourceV;
+      for(let x=0;x<G;x++){
+        const sourceU=(x/Math.max(1,G-1)-padding)/scale;
+        if(sourceU<0||sourceU>1)continue;
+        const lon=west+(east-west)*sourceU;
+        if(geoPointInPolygon(lon,lat))raw[idx(x,y)]=1;
+      }
+    }
+  }
+  const coastRadius=Math.max(3,Math.round(G*.012)),radii=terrainBrushRadii(coastRadius);
+  const mask=geoBlurIslandMask(raw,radii.x,radii.y,3);
+  let maximum=0;
+  for(let i=0;i<mask.length;i++)if(mask[i]>maximum)maximum=mask[i];
+  if(maximum>0&&maximum<.999)for(let i=0;i<mask.length;i++)mask[i]=clamp(mask[i]/maximum,0,1);
+  return {mask,padding,scale};
+}
+function geoIslandCoastHeight(mask,mappedHeight,sea,land,oceanFloor=sea){
+  const amount=clamp(mask,0,1),shore=Math.max(0,sea+1),dryBase=Math.max(shore+1,land);
+  if(amount<=.015)return oceanFloor;
+  if(amount<.56)return lerp(oceanFloor,shore,smoothstep(.015,.56,amount));
+  const beach=lerp(shore,dryBase,smoothstep(.56,.82,amount));
+  const relief=Math.max(dryBase,mappedHeight);
+  return lerp(beach,relief,smoothstep(.82,.99,amount));
+}
 async function importGeoSelection(){
   if(geoImporting)return;
   if(!geoMapReady){setGeoStatus('Map is still loading.');return;}
@@ -2157,27 +2394,37 @@ async function importGeoSelection(){
     }
     if(!Number.isFinite(actualMin)||!Number.isFinite(actualMax))throw Error('selected area contains no samples');
     const sea=+$('pSea').value,land=+$('pLand').value,peak=Math.max(land+1,+$('pPeak').value),relative=$('mapHeightMode').value==='relative';
+    const makeIsland=!!$('mapMakeIsland')?.checked,selectionMode=geoSelectionMode||geoMode;
+    const islandPadding=makeIsland?(selectionMode==='rectangle'?.07:.09):0;
     snapshot();
     setTerrainAspect(selectionAspect);
+    const islandData=makeIsland?geoBuildIslandMask(north,south,west,east,islandPadding):null;
     for(let y=0;y<G;y++){
-      const v=y/Math.max(1,G-1),lat=north-(north-south)*v;
+      const v=y/Math.max(1,G-1),sourceV=islandData?(v-islandData.padding)/islandData.scale:v;
+      const lat=north-(north-south)*sourceV;
       for(let x=0;x<G;x++){
-        const u=x/Math.max(1,G-1),lon=west+(east-west)*u,i=idx(x,y);
-        if(!geoPointInPolygon(lon,lat)){height[i]=sea;continue;}
-        const elevation=geoGridSample(values,size,u,v);
-        height[i]=relative
+        const u=x/Math.max(1,G-1),sourceU=islandData?(u-islandData.padding)/islandData.scale:u;
+        const lon=west+(east-west)*sourceU,i=idx(x,y);
+        if(!makeIsland&&!geoPointInPolygon(lon,lat)){height[i]=sea;continue;}
+        const elevation=geoGridSample(values,size,sourceU,sourceV);
+        const mapped=relative
           ?clamp(lerp(land,peak,(elevation-actualMin)/Math.max(1e-6,actualMax-actualMin)),sea,peak)
           :clamp(elevation,sea,peak);
+        if(makeIsland){
+          const oceanFloor=sea+(fbmAt2(x,y,terrainSeed+1701,3,.018)-.5)*1.8;
+          height[i]=geoIslandCoastHeight(islandData.mask[i],mapped,sea,land,oceanFloor);
+        }else height[i]=mapped;
       }
     }
-    visualPeak=0;baseTemplate='map';geoSourceMeta={provider:elevationProvider,bounds:{north,south,west,east},points:geoPoints.map(p=>({lat:p.lat,lng:p.lng})),mapping:relative?'relative':'absolute',elevationMin:actualMin,elevationMax:actualMax,samples:size,tileZoom:elevationZoom,tileCount:elevationTiles,widthMeters:selectionWidth,heightMeters:selectionHeight,aspect:terrainAspect};
+    visualPeak=0;baseTemplate='map';geoSourceMeta={provider:elevationProvider,bounds:{north,south,west,east},points:geoPoints.map(p=>({lat:p.lat,lng:p.lng})),selectionMode,island:makeIsland,coastPadding:islandPadding,mapping:relative?'relative':'absolute',elevationMin:actualMin,elevationMax:actualMax,samples:size,tileZoom:elevationZoom,tileCount:elevationTiles,widthMeters:selectionWidth,heightMeters:selectionHeight,aspect:terrainAspect};
     overrideA.fill(0);treeMask.fill(0);generateAutoMask(true);treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
     refreshVisualPeak();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
     show2d('height');
     if(typeof window.terraGenOpenDrawer==='function')window.terraGenOpenDrawer('sculpt');
     const modeLabel=relative?'relative relief':'absolute elevation';
-    $('status').textContent='real terrain imported · '+modeLabel+' · '+actualMin.toFixed(0)+'–'+actualMax.toFixed(0)+' m';
-    setGeoStatus('Imported into the editor · '+actualMin.toFixed(0)+'–'+actualMax.toFixed(0)+' m source elevation.');
+    const islandLabel=makeIsland?' · island with shelf':'';
+    $('status').textContent='real terrain imported · '+modeLabel+islandLabel+' · '+actualMin.toFixed(0)+'–'+actualMax.toFixed(0)+' m';
+    setGeoStatus('Imported into the editor'+islandLabel+' · '+actualMin.toFixed(0)+'–'+actualMax.toFixed(0)+' m source elevation.');
   }catch(error){
     console.error(error);setGeoStatus('Import failed · '+error.message);$('status').textContent='map import failed · '+error.message;
   }finally{geoImporting=false;if(button)button.disabled=false;}
@@ -2591,6 +2838,7 @@ $('maskLandOnly')?.addEventListener('change',()=>{if($('maskLandOnly').checked)$
 $('maskSeaOnly')?.addEventListener('change',()=>{if($('maskSeaOnly').checked)$('maskLandOnly').checked=false;});
 $('pSandLimit').addEventListener('input',()=>{updateLabels();generateAutoMask(false);applyForestToMaterialMask();render2d();});
 $('showTreeOverlay').addEventListener('change',render2d);
+$('showTreeContours').addEventListener('change',render2d);
 $('treePreviewMode')?.addEventListener('change',render2d);
 ['pTreeRadius','pTreeDensity','pTreePatch'].forEach(id=>$(id)?.addEventListener('input',render2d));
 $('treeGenerateAuto')?.addEventListener('click',()=>{regenerateAutomaticForest(true);show2d('trees');});
@@ -2623,6 +2871,11 @@ function isContourPixel(i,interval=20){
   if(x>=G-1||y>=G-1)return false;
   const band=Math.floor(h/interval);
   return Math.floor(height[i+1]/interval)!==band||Math.floor(height[i+G]/interval)!==band;
+}
+function shadeContourPixel(data,offset){
+  data[offset]=Math.round(data[offset]*.55);
+  data[offset+1]=Math.round(data[offset+1]*.55);
+  data[offset+2]=Math.round(data[offset+2]*.55);
 }
 function terrainSlopeAt(x,y){
   const l=height[idx(Math.max(0,x-1),y)],r=height[idx(Math.min(G-1,x+1),y)];
@@ -2689,7 +2942,8 @@ function render2d(){
   const d=display.data;
   const previewMode=mode==='mask' ? $('maskPreviewMode').value : 'terrain';
   const maskAlpha=+$('pMaskOpacity').value/100;
-  const contours=mode==='mask'&&$('showContours').checked&&previewMode!=='mask';
+  const maskContours=mode==='mask'&&$('showContours').checked&&previewMode!=='mask';
+  const treeContours=mode==='trees'&&$('showTreeContours').checked;
 
   for(let i=0;i<G*G;i++){
     const o=i*4;
@@ -2707,6 +2961,7 @@ function render2d(){
         const lum=Math.round(relief[0]*.18+relief[1]*.24+relief[2]*.12);
         d[o]=d[o+1]=d[o+2]=clamp(lum,18,72);
       }
+      if(treeContours&&isContourPixel(i))shadeContourPixel(d,o);
       // Strong land/coast outline so painting boundaries are unambiguous.
       const land=h>Math.max(0.5,sea+0.5);
       const right=height[idx(Math.min(G-1,x+1),y)]>Math.max(0.5,sea+0.5);
@@ -2725,11 +2980,7 @@ function render2d(){
         d[o+2]=Math.round(lerp(relief[2],mb,maskAlpha));
       }
 
-      if(contours&&isContourPixel(i)){
-        d[o]=Math.round(d[o]*.55);
-        d[o+1]=Math.round(d[o+1]*.55);
-        d[o+2]=Math.round(d[o+2]*.55);
-      }
+      if(maskContours&&isContourPixel(i))shadeContourPixel(d,o);
 
     }else{
       d[o]=relief[0];d[o+1]=relief[1];d[o+2]=relief[2];
@@ -2903,7 +3154,7 @@ function canvasBlob(canvas,type='image/png',quality){
   return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('canvas export failed')),type,quality));
 }
 function projectData(){
-  return {format:'TERRA GEN SCULPT',version:2,grid:G,settings:{sea:+$('pSea').value,land:+$('pLand').value,peak:+$('pPeak').value,seed:terrainSeed,baseTemplate,islandKind,world:worldSize||8192,terrainAspect,grid:G,exportSize:OUT,heightScale:+$('pHeightScale').value,maskPreview:$('maskPreviewMode').value,maskOpacity:+$('pMaskOpacity').value,showContours:!!$('showContours').checked,geoSource:geoSourceMeta,materialChannels:{r:'rock/detail 0',g:'sediment/detail 1',b:'vegetation/detail 2'},treeSettings:{radius:+$('pTreeRadius').value,density:+$('pTreeDensity').value,patch:+$('pTreePatch').value,seed:forestSeed}},height:arrayToB64(height),mask:arrayToB64(maskRGB),override:arrayToB64(overrideA),treeMask:arrayToB64(treeMask),treeAutoMask:arrayToB64(treeAutoMask)};
+  return {format:'TERRA GEN SCULPT',version:2,grid:G,settings:{sea:+$('pSea').value,land:+$('pLand').value,peak:+$('pPeak').value,seed:terrainSeed,baseTemplate,islandKind,world:worldSize||8192,terrainAspect,grid:G,exportSize:OUT,heightScale:+$('pHeightScale').value,maskPreview:$('maskPreviewMode').value,maskOpacity:+$('pMaskOpacity').value,showContours:!!$('showContours').checked,geoSource:geoSourceMeta,materialChannels:{r:'rock/detail 0',g:'sediment/detail 1',b:'vegetation/detail 2'},treeSettings:{radius:+$('pTreeRadius').value,density:+$('pTreeDensity').value,patch:+$('pTreePatch').value,seed:forestSeed,showContours:!!$('showTreeContours').checked}},height:arrayToB64(height),mask:arrayToB64(maskRGB),override:arrayToB64(overrideA),treeMask:arrayToB64(treeMask),treeAutoMask:arrayToB64(treeAutoMask)};
 }
 $('exportEXR').onclick=()=>{
   $('status').textContent='resampling '+OUT+'² heightfield…';
@@ -3009,6 +3260,7 @@ $('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().th
     if(Number.isFinite(d.settings.treeSettings.density))$('pTreeDensity').value=d.settings.treeSettings.density;
     if(Number.isFinite(d.settings.treeSettings.patch))$('pTreePatch').value=d.settings.treeSettings.patch;
     if(Number.isFinite(d.settings.treeSettings.seed))forestSeed=(d.settings.treeSettings.seed>>>0)||104729;
+    if(typeof d.settings.treeSettings.showContours==='boolean')$('showTreeContours').checked=d.settings.treeSettings.showContours;
   }
   updateLabels();updateMapSizeInfo();generateAutoMask(false);applyForestToMaterialMask();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();$('status').textContent='project loaded';}).catch(err=>$('status').textContent='load failed · '+err.message);};
 
@@ -3681,7 +3933,13 @@ refreshPresetList();
     "Map zoom controls":"Управление масштабом карты",
     "Zoom in":"Увеличить",
     "Zoom out":"Уменьшить",
-    "Terrain orientation":"Ориентация рельефа"
+    "Terrain orientation":"Ориентация рельефа",
+    "MAKE ISLAND FROM SELECTED AREA":"СДЕЛАТЬ ИЗ ВЫБРАННОЙ ОБЛАСТИ ОСТРОВ",
+    "island with shelf":"остров с шельфом",
+    "SEARCH MAP":"ПОИСК ПО КАРТЕ","SEARCH":"НАЙТИ","Place, city, or address":"Место, город или адрес","Enter a place or address.":"Введите место или адрес.",
+    "BASEMAP · STREETS":"СЛОЙ · КАРТА","BASEMAP · SATELLITE":"СЛОЙ · СПУТНИК","BASEMAP · TOPOGRAPHIC":"СЛОЙ · РЕЛЬЕФ","STREETS":"КАРТА","SATELLITE":"СПУТНИК","TOPOGRAPHIC":"РЕЛЬЕФ",
+    "Map layers:":"Слои карты:","Search:":"Поиск:","Searching…":"Поиск…","Nothing found.":"Ничего не найдено.","results":"результатов",
+    "Map centered on ·":"Карта перемещена к ·","Search failed ·":"Ошибка поиска ·","Map result":"Результат поиска","map view ·":"вид карты ·"
   });
   const EN=Object.fromEntries(Object.entries(RU).map(([k,v])=>[v,k]));
   const ID_TIPS_EN={"lang_en": "Switch interface to English", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Edit terrain height with sculpting tools", "tabMask": "Edit the RGB material distribution mask", "tabTrees": "Edit areas where trees are allowed or forbidden", "tabMap": "Open a real-world map and select terrain to import", "tab3d": "Open the interactive 3D terrain preview", "undoTop": "Undo the last terrain, material, or tree edit", "redoTop": "Redo the last undone edit", "zoomOut2d": "Zoom out of the 2D map", "zoomIn2d": "Zoom into the 2D map", "resetView": "Reset the current 2D or 3D view", "saveProject": "Save the editable Terrain Gen project as JSON", "loadProject": "Load a previously saved Terrain Gen project", "exportEXR": "Export the floating-point EXR heightmap", "exportMask": "Export the RGB material mask PNG", "exportTrees": "Export the black-and-white tree permission mask PNG", "exportBundle": "Export EXR, masks, preview, project, and README in one ZIP", "btnRandomize": "Choose a new random terrain seed and regenerate", "btnRegenBase": "Regenerate the selected base terrain using the current settings", "btnErode": "Apply an erosion pass to the entire terrain", "btnTerraces": "Quantize terrain heights into terraces", "btnDunes": "Add dune-like relief to suitable low areas", "btnNoisePass": "Add procedural fine detail across the terrain", "btnMirrorH": "Mirror the full project horizontally", "btnMirrorV": "Mirror the full project vertically", "btnImportHeight": "Replace the terrain with an imported grayscale image", "symMirrorX": "Mirror each sculpt stroke across the vertical map axis", "symMirrorY": "Mirror each sculpt stroke across the horizontal map axis", "symRadial": "Repeat each sculpt stroke four times around the map center", "presetSave": "Save the current sculpt brush settings as a preset", "presetLoad": "Load the selected sculpt brush preset", "regenMask": "Rebuild the automatic material mask from terrain height and slope", "slopeAuto": "Assign materials automatically using height and steepness", "treeGenerateAuto": "Generate a new natural distribution of forest patches", "treeResetAuto": "Remove all manual tree edits and return to the automatic mask", "exportHeightPNG": "Export a grayscale PNG preview of the heightmap", "pSea": "Set the minimum seabed elevation", "pLand": "Set the base elevation of generated land", "pPeak": "Set the maximum generated and sculpted height", "pSeed": "Set the procedural terrain seed", "pPass": "Set the strength of global post-processing passes", "pWorldSize": "Choose the physical width and depth of the terrain in meters", "pResolution": "Choose the internal sculpting grid resolution", "pExportSize": "Choose the pixel resolution of all exported maps", "pRadius": "Set the sculpt brush radius", "pStrength": "Set the sculpt brush strength in meters", "pSharp": "Set the sharpness of the mountain ridge profile", "pLow": "Set the target elevation for level-based sculpt tools", "autoMask": "Automatically update unpainted material regions after sculpting", "pMaskRadius": "Set the material painting brush radius", "maskLandOnly": "Restrict material painting to sea", "maskSeaOnly": "Restrict material painting to sea", "maskPreviewMode": "Choose how the material mask is displayed", "pMaskOpacity": "Set material overlay opacity", "showContours": "Show height contour lines every 20 meters", "pSandLimit": "Set the height threshold used for sediment and beach material", "pTreeRadius": "Set the tree-mask brush radius", "pTreeDensity": "Set the amount of land covered by generated forest", "pTreePatch": "Set the average size and continuity of forest patches", "pHeightScale": "Change only the vertical scale of the 3D preview", "flipY": "Flip all exported maps vertically for Substrata or Metasiberia orientation compatibility", "projectFile": "Choose a Terrain Gen project file", "heightmapFile": "Choose a grayscale image to import as terrain height"};
@@ -3694,7 +3952,17 @@ refreshPresetList();
   let currentLang='en', applying=false;
   ID_TIPS_EN.maskLandOnly='Restrict material painting to land';
   ID_TIPS_EN.lang_ru='Switch interface to Russian';
+  ID_TIPS_EN.mapMakeIsland='Surround the selected real terrain with sea and generate a smooth coastal shelf';
+  ID_TIPS_EN.mapLayerMode='Switch between street, satellite, and topographic map views';
+  ID_TIPS_EN.mapSearchInput='Enter a place, city, or address to find it on the map';
+  ID_TIPS_EN.mapSearchButton='Search for the entered place on the map';
+  ID_TIPS_EN.showTreeContours='Show terrain elevation contour lines every 20 meters while editing trees';
   ID_TIPS_RU.tabMap='Открыть реальную карту и выбрать рельеф для импорта';
+  ID_TIPS_RU.mapMakeIsland='Окружить выбранный реальный рельеф морем и создать сглаженный прибрежный шельф';
+  ID_TIPS_RU.mapLayerMode='Переключать обычную, спутниковую и топографическую карту';
+  ID_TIPS_RU.mapSearchInput='Введите место, город или адрес для поиска на карте';
+  ID_TIPS_RU.mapSearchButton='Найти введённое место на карте';
+  ID_TIPS_RU.showTreeContours='Показывать линии высот рельефа через каждые 20 метров при редактировании деревьев';
   Object.assign(ID_TIPS_RU,{btnRandomize:'Выбрать новое случайное начальное число и перегенерировать рельеф',btnRegenBase:'Перегенерировать выбранный базовый рельеф с текущими настройками',pSeed:'Задать начальное число процедурной генерации рельефа'});
   const sortedRu=Object.keys(EN).sort((a,b)=>b.length-a.length);
   const sortedEn=Object.keys(RU).sort((a,b)=>b.length-a.length);
@@ -3777,6 +4045,7 @@ refreshPresetList();
     updateTooltips(currentLang);
     window.terraGenUpdateCompassLanguage?.(currentLang);
     window.terraGenUpdateMapLanguage?.(currentLang);
+    window.terraGenUpdateBasemapButton?.();
     if(typeof updateMapSizeInfo==='function')updateMapSizeInfo();
     if(typeof updateToolTip==='function')updateToolTip(typeof tool==='string'?tool:'mountain');
     window.terraGenSyncTerrainContext?.();
@@ -3872,7 +4141,8 @@ refreshPresetList();
     btnMirrorH:'flip-horizontal-2',btnMirrorV:'flip-vertical-2',btnImportHeight:'image-up',symMirrorX:'flip-horizontal-2',symMirrorY:'flip-vertical-2',
     symRadial:'rotate-ccw',presetSave:'save',presetLoad:'folder-open',regenMask:'refresh-cw',slopeAuto:'wand-sparkles',
     treeGenerateAuto:'trees',treeResetAuto:'eraser',exportHeightPNG:'image-down',
-    mapBack:'arrow-left',mapFinish:'check',mapUndoPoint:'undo-2',mapClear:'x',mapImport:'download',mapZoomOut:'zoom-out',mapZoomIn:'zoom-in',mapResetView:'locate-fixed',mapPanMode:'hand'
+    mapBack:'arrow-left',mapFinish:'check',mapUndoPoint:'undo-2',mapClear:'x',mapImport:'download',mapZoomOut:'zoom-out',mapZoomIn:'zoom-in',mapResetView:'locate-fixed',mapPanMode:'hand',
+    mapLayerMode:'layers-3',mapSearchButton:'search'
   };
   const DRAWER_LABELS={base:'BASE TERRAIN',map:'REAL MAP',sculpt:'SCULPT TOOL',mask:'MATERIAL MASK',trees:'TREES',preview:'3D PREVIEW',export:'EXPORT'};
   let switchingMode=false;
