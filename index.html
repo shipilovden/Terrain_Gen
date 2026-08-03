@@ -446,8 +446,8 @@ body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
       <div class="field"><label>export file resolution (px)</label>
         <select id="pExportSize">
           <option value="512">512 × 512</option>
-          <option value="1024" selected>1024 × 1024</option>
-          <option value="2048">2048 × 2048</option>
+          <option value="1024" selected>1024 × 1024 — Metasiberia</option>
+          <option value="2048">2048 × 2048 — terrain only (experimental)</option>
         </select>
       </div>
       <div class="mini" id="mapSizeInfo">Now: world 8192 m · grid 512² · export 1024 px. 1024 is EXR pixel size, not world meters.</div>
@@ -640,7 +640,7 @@ body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
     <h2>TREES</h2>
     <button type="button" id="treeGenerateAuto" class="wide" style="margin-bottom:6px">REGENERATE FOREST</button>
     <div class="grid2" id="treeMaskTools">
-      <button data-mask="treeAdd">ADD TREES</button>
+      <button data-mask="treeAdd" class="on">ADD TREES</button>
       <button data-mask="treeBlock">BLOCK TREES</button>
       <button data-mask="treeErase">ERASE MANUAL</button>
       <button type="button" id="treeResetAuto">CLEAR MANUAL EDITS</button>
@@ -656,8 +656,8 @@ body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
 
   <div class="sect context-3d drawer-section" id="previewSettings" data-drawer-section="preview">
     <h2>3D PREVIEW</h2>
-    <div class="param"><label>preview / Substrata height scale <b id="vHeightScale">8.0×</b></label><input id="pHeightScale" type="range" min="25" max="1600" value="800"></div>
-    <div class="mini">This affects only the preview and recommended Substrata setting; exported height values remain in meters.</div>
+    <div class="param"><label>3D preview height exaggeration <b id="vHeightScale">8.0×</b></label><input id="pHeightScale" type="range" min="25" max="1600" value="800"></div>
+    <div class="mini">Preview only. EXR already stores meters, so Metasiberia terrain height scale must be 1.0.</div>
   </div>
 
   <div class="sect drawer-section" id="exportSettings" data-drawer-section="export">
@@ -665,7 +665,7 @@ body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
     <div class="row"><input id="flipY" type="checkbox" checked><label for="flipY">Substrata orientation · flip vertically</label></div>
     <button id="exportHeightPNG" class="wide">HEIGHT PREVIEW PNG</button>
     <input id="projectFile" type="file" accept=".json,.tforge" hidden>
-    <div class="mini">EXR uses one float channel named Y. Material mask: R rock/detail 0, G sediment/detail 1, B vegetation/detail 2. Tree mask is an opaque grayscale PNG: white = trees, black = no trees.</div>
+    <div class="mini">EXR uses one float channel named Y. Current Metasiberia renders detail 1 as ground and B/detail 2 as vegetation; R/detail 0 and detail 3 are not rendered separately yet. Tree mask is opaque: white = trees and B vegetation, black = no trees.</div>
   </div>
 </aside>
 
@@ -681,13 +681,13 @@ body.icons-ready .map-control-labeled.icon-button .icon-label{display:inline}
       </div>
       <div class="legend" id="treeLegend" style="display:none">
         <div><span class="sw" style="background:#fff"></span>trees allowed</div>
-        <div><span class="sw" style="background:#000;border:1px solid #666"></span>open grass / detail 3</div>
+        <div><span class="sw" style="background:#000;border:1px solid #666"></span>trees forbidden</div>
       </div>
     </div>
   </div>
   <div id="panel3d" class="panel">
     <canvas id="preview3d"></canvas>
-    <div class="hud" id="hud3d"><b>3D PREVIEW</b> · <span id="hud3dWorld">8192</span> m world · height scale → Substrata · drag orbit · wheel zoom</div>
+    <div class="hud" id="hud3d"><b>3D PREVIEW</b> · <span id="hud3dWorld">8192</span> m world · preview exaggeration · drag orbit · wheel zoom</div>
   </div>
   <div id="panelMap" class="panel">
     <div class="mapWrap">
@@ -743,7 +743,8 @@ let maskRGB=new Uint8ClampedArray(G*G*3);
 let overrideA=new Uint8ClampedArray(G*G);
 let treeMask=new Uint8ClampedArray(G*G);
 let treeAutoMask=new Uint8ClampedArray(G*G);
-let tool='mountain',maskTool='r',mode='height',drawing=false,lastPt=null;
+let treeMaterialOverrideA=new Uint8ClampedArray(G*G);
+let tool='mountain',materialTool='r',treeTool='treeAdd',maskTool=materialTool,mode='height',drawing=false,lastPt=null;
 let undoStack=[],redoStack=[],dirty3d=true,baseTemplate='island',islandKind='classic',terrainSeed=42,forestSeed=104729;
 let symMirrorX=false,symMirrorY=false,symRadial=0;
 let activeSculptPeak=0,strokeStartMax=0,strokeSamples=0,visualPeak=0;
@@ -985,7 +986,7 @@ function updateUndoButtons(){
   if($('redoTop'))$('redoTop').disabled=!canRedo;
 }
 function captureHistoryState(){
-  return {h:new Float32Array(height),m:new Uint8ClampedArray(maskRGB),o:new Uint8ClampedArray(overrideA),t:new Uint8ClampedArray(treeMask),ta:new Uint8ClampedArray(treeAutoMask),a:terrainAspect,geo:geoSourceMeta?JSON.parse(JSON.stringify(geoSourceMeta)):null,base:baseTemplate};
+  return {g:G,h:new Float32Array(height),am:new Uint8ClampedArray(autoRGB),m:new Uint8ClampedArray(maskRGB),o:new Uint8ClampedArray(overrideA),t:new Uint8ClampedArray(treeMask),ta:new Uint8ClampedArray(treeAutoMask),tm:new Uint8ClampedArray(treeMaterialOverrideA),a:terrainAspect,geo:geoSourceMeta?JSON.parse(JSON.stringify(geoSourceMeta)):null,base:baseTemplate};
 }
 function snapshot(){
   undoStack.push(captureHistoryState());
@@ -1005,8 +1006,9 @@ function normalizeTreeMask(arr){
   return out;
 }
 function restore(s){
-  height=new Float32Array(s.h);maskRGB=new Uint8ClampedArray(s.m);overrideA=new Uint8ClampedArray(s.o);
-  treeMask=normalizeTreeMask(s.t);treeAutoMask=s.ta?new Uint8ClampedArray(s.ta):buildAutomaticForestMask();geoSourceMeta=s.geo?JSON.parse(JSON.stringify(s.geo)):null;baseTemplate=s.base||baseTemplate;setTerrainAspect(Number.isFinite(s.a)?s.a:1);refreshVisualPeak();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
+  if(Number.isFinite(s.g)&&s.g!==G){G=s.g;if($('pResolution'))$('pResolution').value=String(G);display=ctx.createImageData(G,G);}
+  height=new Float32Array(s.h);maskRGB=new Uint8ClampedArray(s.m);autoRGB=s.am?new Uint8ClampedArray(s.am):new Uint8ClampedArray(maskRGB);overrideA=new Uint8ClampedArray(s.o);
+  treeMask=normalizeTreeMask(s.t);treeAutoMask=s.ta?new Uint8ClampedArray(s.ta):buildAutomaticForestMask();treeMaterialOverrideA=s.tm?new Uint8ClampedArray(s.tm):new Uint8ClampedArray(G*G);geoSourceMeta=s.geo?JSON.parse(JSON.stringify(s.geo)):null;baseTemplate=s.base||baseTemplate;setTerrainAspect(Number.isFinite(s.a)?s.a:1);refreshVisualPeak();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
 }
 function doUndo(){
   if(!undoStack.length)return;
@@ -1567,7 +1569,7 @@ function makeTemplate(kind){
   }
   if(kind!=='blank') naturalizeHeightField(sea, peak);
   refreshVisualPeak();
-  overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();render2d();dirty3d=true;dirtyPreview3d=true;
+  overrideA.fill(0);treeMask.fill(0);treeMaterialOverrideA.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();render2d();dirty3d=true;dirtyPreview3d=true;
   const templateButton=document.querySelector('[data-template="'+kind+'"]');
   const generatedLabel=kind==='island'?('ISLAND · '+islandLabel(islandKind)):((templateButton?.textContent||kind).trim());
   $('status').textContent=generatedLabel+' · seed '+terrainSeed+' · naturalized';updateUndoButtons();
@@ -1658,15 +1660,17 @@ function mirrorHeight(axis){
   const nextM=new Uint8ClampedArray(maskRGB);
   const nextO=new Uint8ClampedArray(overrideA);
   const nextT=new Uint8ClampedArray(treeMask);
+  const nextTA=new Uint8ClampedArray(treeAutoMask);
+  const nextTM=new Uint8ClampedArray(treeMaterialOverrideA);
   for(let y=0;y<G;y++)for(let x=0;x<G;x++){
     const sx=axis==='h'?G-1-x:x;
     const sy=axis==='v'?G-1-y:y;
     const i=idx(x,y),j=idx(sx,sy);
     next[i]=height[j];
-    nextO[i]=overrideA[j];nextT[i]=treeMask[j];
+    nextO[i]=overrideA[j];nextT[i]=treeMask[j];nextTA[i]=treeAutoMask[j];nextTM[i]=treeMaterialOverrideA[j];
     nextM[i*3]=maskRGB[j*3];nextM[i*3+1]=maskRGB[j*3+1];nextM[i*3+2]=maskRGB[j*3+2];
   }
-  height=next;maskRGB=nextM;overrideA=nextO;treeMask=nextT;
+  height=next;maskRGB=nextM;overrideA=nextO;treeMask=nextT;treeAutoMask=nextTA;treeMaterialOverrideA=nextTM;
   dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
   $('status').textContent=axis==='h'?'mirrored horizontally':'mirrored vertically';
 }
@@ -1688,7 +1692,7 @@ function importHeightmapFile(file){
       const gray=(y*0.299+u*0.587+v*0.114)/255;
       height[i]=lerp(sea,peak,gray);
     }
-    overrideA.fill(0);treeMask.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
+    overrideA.fill(0);treeMask.fill(0);treeMaterialOverrideA.fill(0);generateAutoMask();treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
     dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
     $('status').textContent='heightmap imported · '+file.name;
     URL.revokeObjectURL(url);
@@ -1737,8 +1741,12 @@ document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{
   mode='height';show2d('height');
 });
 document.querySelectorAll('[data-mask]').forEach(b=>b.onclick=()=>{
-  maskTool=b.dataset.mask;document.querySelectorAll('[data-mask]').forEach(x=>x.classList.toggle('on',x===b));
-  const isTreeTool=maskTool==='treeAdd'||maskTool==='treeBlock'||maskTool==='treeErase';
+  const selected=b.dataset.mask;
+  const isTreeTool=selected==='treeAdd'||selected==='treeBlock'||selected==='treeErase';
+  if(isTreeTool)treeTool=selected;else materialTool=selected;
+  maskTool=selected;
+  const group=isTreeTool?'#treeMaskTools [data-mask]':'#maskTools [data-mask]';
+  document.querySelectorAll(group).forEach(x=>x.classList.toggle('on',x===b));
   show2d(isTreeTool?'trees':'mask');
   if(maskTool==='treeAdd')$('status').textContent='trees · paint allowed area';
   else if(maskTool==='treeBlock')$('status').textContent='trees · paint blocked area';
@@ -1752,6 +1760,8 @@ document.querySelectorAll('[data-mask]').forEach(b=>b.onclick=()=>{
 
 function show2d(which){
   document.querySelector('main')?.classList.remove('map-layout');
+  if(which==='mask')maskTool=materialTool;
+  else if(which==='trees')maskTool=treeTool;
   mode=which;$('panel2d').classList.add('on');$('panel3d').classList.remove('on');
   $('panelMap').classList.remove('on');
   $('tabHeight').classList.toggle('on',which==='height');
@@ -2417,7 +2427,7 @@ async function importGeoSelection(){
       }
     }
     visualPeak=0;baseTemplate='map';geoSourceMeta={provider:elevationProvider,bounds:{north,south,west,east},points:geoPoints.map(p=>({lat:p.lat,lng:p.lng})),selectionMode,island:makeIsland,coastPadding:islandPadding,mapping:relative?'relative':'absolute',elevationMin:actualMin,elevationMax:actualMax,samples:size,tileZoom:elevationZoom,tileCount:elevationTiles,widthMeters:selectionWidth,heightMeters:selectionHeight,aspect:terrainAspect};
-    overrideA.fill(0);treeMask.fill(0);generateAutoMask(true);treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
+    overrideA.fill(0);treeMask.fill(0);treeMaterialOverrideA.fill(0);generateAutoMask(true);treeAutoMask=buildAutomaticForestMask();applyForestToMaterialMask();
     refreshVisualPeak();dirty3d=true;dirtyPreview3d=true;render2d();updateUndoButtons();
     show2d('height');
     if(typeof window.terraGenOpenDrawer==='function')window.terraGenOpenDrawer('sculpt');
@@ -2641,7 +2651,9 @@ function stampHeight(cx,cy,prev){
 function normalizeMaterialPixel(arr,o){
   let r=Math.max(0,arr[o]),g=Math.max(0,arr[o+1]),b=Math.max(0,arr[o+2]);
   const sum=r+g+b;
-  if(sum<=0){arr[o]=0;arr[o+1]=0;arr[o+2]=255;return;}
+  // The current Metasiberia renderer uses detail 1 as the non-vegetation base.
+  // Never turn an empty/erased pixel into B: that would also enable trees.
+  if(sum<=0){arr[o]=0;arr[o+1]=255;arr[o+2]=0;return;}
   const scale=255/sum;
   r=Math.round(r*scale);g=Math.round(g*scale);b=Math.round(b*scale);
   const drift=255-(r+g+b);
@@ -2662,7 +2674,7 @@ function stampMask(cx,cy){
       const d=terrainBrushDistance(x-cx,y-cy,r);if(d>r)continue;
       const i=idx(x,y),h=height[i],o=i*3;
       if(maskTool==='treeAdd'){
-        if(h<=Math.max(0.75,sea+0.5))continue;
+        if(h<=minimumTreeHeight())continue;
         treeMask[i]=128; // force white / trees allowed
 
         // Metasiberia places trees only where the tree mask AND the vegetation
@@ -2671,19 +2683,24 @@ function stampMask(cx,cy){
         maskRGB[o]=0;maskRGB[o+1]=0;maskRGB[o+2]=255;
         autoRGB[o]=0;autoRGB[o+1]=0;autoRGB[o+2]=255;
         overrideA[i]=255;
+        treeMaterialOverrideA[i]=255;
       }else if(maskTool==='treeBlock'){
         treeMask[i]=255; // force black / no trees
       }else{
         treeMask[i]=0;   // restore automatic forest result
-        if(!overrideA[i]){
-          const slope=terrainSlopeAt(x,y);
-          let rr=0,gg=0,bb=0;
-          if(h<=+$('pSandLimit').value) gg=255;
-          else if(slope>8.5) rr=255;
-          else if(treeAllowedAt(i,x,y)) bb=255;
-          autoRGB[o]=rr;autoRGB[o+1]=gg;autoRGB[o+2]=bb;
-          maskRGB[o]=rr;maskRGB[o+1]=gg;maskRGB[o+2]=bb;
-        }
+        // ADD TREES created a material override. Erasing that manual tree edit
+        // must remove the hidden override as well and restore automatic ground.
+        if(!treeMaterialOverrideA[i])continue;
+        treeMaterialOverrideA[i]=0;
+        overrideA[i]=0;
+        const slope=terrainSlopeAt(x,y);
+        let rr=0,gg=0,bb=0;
+        if(h<=+$('pSandLimit').value) gg=255;
+        else if(slope>TERRAIN_ROCK_SLOPE) rr=255;
+        else if(treePermissionAt(i,x,y)) bb=255;
+        else gg=255;
+        autoRGB[o]=rr;autoRGB[o+1]=gg;autoRGB[o+2]=bb;
+        maskRGB[o]=rr;maskRGB[o+1]=gg;maskRGB[o+2]=bb;
       }
     }
     return;
@@ -2707,6 +2724,7 @@ function stampMask(cx,cy){
       maskRGB[o+2]=Math.round(lerp(copy[o+2],sb/c,f*.62));
       normalizeMaterialPixel(maskRGB,o);
       overrideA[i]=255;
+      treeMaterialOverrideA[i]=0;
     }
     return;
   }
@@ -2718,9 +2736,11 @@ function stampMask(cx,cy){
     if(seaOnly&&h>sea+0.5)continue;
     if(maskTool==='erase'){
       overrideA[i]=0;
+      treeMaterialOverrideA[i]=0;
       maskRGB[o]=autoRGB[o];maskRGB[o+1]=autoRGB[o+1];maskRGB[o+2]=autoRGB[o+2];
     }else if(channel!==undefined){
       overrideA[i]=255;
+      treeMaterialOverrideA[i]=0;
       const f=Math.pow(1-d/r,1.35);
       const target=[0,0,0];target[channel]=255;
       maskRGB[o]=Math.round(lerp(maskRGB[o],target[0],f));
@@ -2783,24 +2803,23 @@ cv.addEventListener('wheel',e=>{
 $('zoomIn2d').onclick=()=>setMapZoom(mapZoom*1.5);
 $('zoomOut2d').onclick=()=>setMapZoom(mapZoom/1.5);
 
+const TERRAIN_ROCK_SLOPE=0.25; // rise/run, about 14 degrees
 function generateAutoMask(resetOverrides=true){
   const sandLimit=+$('pSandLimit').value;
   for(let y=0;y<G;y++)for(let x=0;x<G;x++){
     const i=idx(x,y),h=height[i],o=i*3;
-    const l=height[idx(Math.max(0,x-1),y)],rgt=height[idx(Math.min(G-1,x+1),y)];
-    const dn=height[idx(x,Math.max(0,y-1))],up=height[idx(x,Math.min(G-1,y+1))];
-    const slope=Math.hypot(rgt-l,up-dn);
+    const slope=terrainSlopeAt(x,y);
     let r=0,g=0,b=0;
     if(h<=sandLimit){
       g=255; // detail 1: seabed, beach and sediment
-    }else if(slope>8){
+    }else if(slope>TERRAIN_ROCK_SLOPE){
       r=255; // detail 0: exposed rock on steep slopes
     }else{
       b=255; // detail 2: vegetation on stable land
     }
     autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
     if(resetOverrides){
-      maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;
+      maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;treeMaterialOverrideA[i]=0;
     }else if(!overrideA[i]){
       maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;
     }
@@ -2813,13 +2832,11 @@ function generateSlopeAutoMask(){
   const peak=+$('pPeak').value, sandLimit=+$('pSandLimit').value;
   for(let y=0;y<G;y++)for(let x=0;x<G;x++){
     const i=idx(x,y),h=height[i],o=i*3;
-    const l=height[idx(Math.max(0,x-1),y)],rgt=height[idx(Math.min(G-1,x+1),y)];
-    const dn=height[idx(x,Math.max(0,y-1))],up=height[idx(x,Math.min(G-1,y+1))];
-    const slope=Math.hypot(rgt-l,up-dn);
+    const slope=terrainSlopeAt(x,y);
     let r=0,g=0,b=0;
     if(h<=sandLimit){
       g=255;
-    }else if(slope>8 || h>peak*.72){
+    }else if(slope>TERRAIN_ROCK_SLOPE || h>peak*.72){
       r=255;
     }else if(h<sandLimit+14){
       g=210;b=45; // soft transition from sediment to vegetation
@@ -2827,7 +2844,7 @@ function generateSlopeAutoMask(){
       b=255;
     }
     autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
-    maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;
+    maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;overrideA[i]=0;treeMaterialOverrideA[i]=0;
   }
   render2d();updateUndoButtons();
   if($('status'))$('status').textContent='Substrata material mask rebuilt by height and slope';
@@ -2840,9 +2857,22 @@ $('pSandLimit').addEventListener('input',()=>{updateLabels();generateAutoMask(fa
 $('showTreeOverlay').addEventListener('change',render2d);
 $('showTreeContours').addEventListener('change',render2d);
 $('treePreviewMode')?.addEventListener('change',render2d);
-['pTreeRadius','pTreeDensity','pTreePatch'].forEach(id=>$(id)?.addEventListener('input',render2d));
+$('pTreeRadius')?.addEventListener('input',render2d);
+['pTreeDensity','pTreePatch'].forEach(id=>$(id)?.addEventListener('change',()=>{
+  snapshot();
+  treeAutoMask=buildAutomaticForestMask();
+  applyForestToMaterialMask();
+  render2d();updateUndoButtons();
+  if($('status'))$('status').textContent='tree mask updated';
+}));
 $('treeGenerateAuto')?.addEventListener('click',()=>{regenerateAutomaticForest(true);show2d('trees');});
-$('treeResetAuto')?.addEventListener('click',()=>{snapshot();treeMask.fill(0);applyForestToMaterialMask();show2d('trees');updateUndoButtons();$('status').textContent='manual tree edits cleared';});
+$('treeResetAuto')?.addEventListener('click',()=>{
+  snapshot();
+  for(let i=0;i<G*G;i++)if(treeMaterialOverrideA[i])overrideA[i]=0;
+  treeMaterialOverrideA.fill(0);treeMask.fill(0);
+  generateAutoMask(false);applyForestToMaterialMask();show2d('trees');updateUndoButtons();
+  $('status').textContent='manual tree edits cleared';
+});
 $('maskPreviewMode').addEventListener('change',render2d);
 $('pMaskOpacity').addEventListener('input',render2d);
 $('showContours').addEventListener('change',render2d);
@@ -2880,11 +2910,13 @@ function shadeContourPixel(data,offset){
 function terrainSlopeAt(x,y){
   const l=height[idx(Math.max(0,x-1),y)],r=height[idx(Math.min(G-1,x+1),y)];
   const d=height[idx(x,Math.max(0,y-1))],u=height[idx(x,Math.min(G-1,y+1))];
-  return Math.hypot(r-l,u-d);
+  const dims=terrainWorldDimensions();
+  const dx=Math.max(.001,2*dims.width/Math.max(1,G-1));
+  const dy=Math.max(.001,2*dims.height/Math.max(1,G-1));
+  return Math.hypot((r-l)/dx,(u-d)/dy);
 }
 function buildAutomaticForestMask(){
   const out=new Uint8ClampedArray(G*G);
-  const sea=+$('pSea').value;
   const density=(+$('pTreeDensity').value)/100;
   const patch=(+$('pTreePatch').value)/100;
   const threshold=lerp(.78,.34,density);
@@ -2893,13 +2925,14 @@ function buildAutomaticForestMask(){
     const i=idx(x,y),h=height[i],o=i*3;
     // Forest eligibility is based on actual dry land, not the sediment/sand material limit.
     // This keeps low islands and coastal land available for trees.
-    if(h<=Math.max(0.75,sea+1))continue;
+    if(h<=Math.max(+$('pSandLimit').value,minimumTreeHeight()))continue;
     const slope=terrainSlopeAt(x,y);
-    if(slope>12.5)continue;
+    if(slope>TERRAIN_ROCK_SLOPE)continue;
     const fs=(forestSeed|0);
-    const large=fbmAt2(x,y,fs+501,5,baseFreq);
-    const medium=fbmAt2(x+83,y-47,fs+777,4,baseFreq*2.8);
-    const breakup=fbmAt2(x-29,y+61,fs+911,3,.055);
+    const gridScale=512/Math.max(1,G),px=x*gridScale,py=y*gridScale;
+    const large=fbmAt2(px,py,fs+501,5,baseFreq);
+    const medium=fbmAt2(px+83,py-47,fs+777,4,baseFreq*2.8);
+    const breakup=fbmAt2(px-29,py+61,fs+911,3,.055);
     const altitudeFade=1-smoothstep(Math.max(80,(+$('pPeak').value)*.58),Math.max(150,(+$('pPeak').value)*.94),h);
     const suitability=(large*.58+medium*.30+breakup*.12)*altitudeFade;
     if(suitability>threshold)out[i]=255;
@@ -2914,9 +2947,9 @@ function applyForestToMaterialMask(){
     const slope=terrainSlopeAt(x,y);
     let r=0,g=0,b=0;
     if(h<=sandLimit){g=255;}
-    else if(slope>8.5){r=255;}
-    else if(treeAllowedAt(i,x,y)){b=255;}
-    else{r=0;g=0;b=0;} // detail 3: open grass without trees
+    else if(slope>TERRAIN_ROCK_SLOPE){r=255;}
+    else if(treePermissionAt(i,x,y)){b=255;}
+    else{g=255;} // Current client uses detail 1 as open ground.
     autoRGB[o]=r;autoRGB[o+1]=g;autoRGB[o+2]=b;
     maskRGB[o]=r;maskRGB[o+1]=g;maskRGB[o+2]=b;
   }
@@ -2931,11 +2964,15 @@ function regenerateAutomaticForest(withSnapshot=true){
   if($('status'))$('status').textContent='tree mask regenerated';
   return treeAutoMask;
 }
-function treeAllowedAt(i,x,y){
+function minimumTreeHeight(){return Math.max(0.75,+$('pSea').value+0.5);}
+function treePermissionAt(i,x,y){
   const manual=treeMask[i];
   if(manual===255)return false;
-  if(manual===128)return height[i]>+$('pSea').value+0.5;
+  if(manual===128)return height[i]>minimumTreeHeight();
   return treeAutoMask[i]>127;
+}
+function treeAllowedAt(i,x,y){
+  return treePermissionAt(i,x,y)&&maskRGB[i*3+2]>=128;
 }
 
 function render2d(){
@@ -2951,9 +2988,9 @@ function render2d(){
 
     if(mode==='trees'){
       const x=i%G,y=(i/G)|0,allowed=treeAllowedAt(i,x,y);
-      const sea=+$('pSea').value,h=height[i];
+      const h=height[i];
       // Dim relief underlay keeps every island/coast visible while white remains the exact tree mask.
-      if(h<=Math.max(0.5,sea+0.5)){
+      if(h<=minimumTreeHeight()){
         d[o]=7;d[o+1]=12;d[o+2]=16;
       }else if(allowed){
         d[o]=255;d[o+1]=255;d[o+2]=255;
@@ -2963,9 +3000,9 @@ function render2d(){
       }
       if(treeContours&&isContourPixel(i))shadeContourPixel(d,o);
       // Strong land/coast outline so painting boundaries are unambiguous.
-      const land=h>Math.max(0.5,sea+0.5);
-      const right=height[idx(Math.min(G-1,x+1),y)]>Math.max(0.5,sea+0.5);
-      const down=height[idx(x,Math.min(G-1,y+1))]>Math.max(0.5,sea+0.5);
+      const land=h>minimumTreeHeight();
+      const right=height[idx(Math.min(G-1,x+1),y)]>minimumTreeHeight();
+      const down=height[idx(x,Math.min(G-1,y+1))]>minimumTreeHeight();
       if(land!==right||land!==down){d[o]=212;d[o+1]=160;d[o+2]=23;}
     }else if(mode==='mask'){
       const mr=maskRGB[i*3],mg=maskRGB[i*3+1],mb=maskRGB[i*3+2];
@@ -3089,9 +3126,22 @@ function bilinearField(src,w,h,x,y,channels=1){
   for(let c=0;c<channels;c++){const a=src[(y0*w+x0)*channels+c],b=src[(y0*w+x1)*channels+c],d=src[(y1*w+x0)*channels+c],e=src[(y1*w+x1)*channels+c];out[c]=lerp(lerp(a,b,tx),lerp(d,e,tx),ty);}
   return out;
 }
+function exportSourceAt(x,y,size=OUT){
+  // Metasiberia terrain sections are square. Keep a rectangular real-map
+  // selection undistorted by centring it in that square and padding the short
+  // axis with seabed instead of stretching it.
+  const axis=terrainAxisScale();
+  const startX=(1-axis.x)*size*.5,startY=(1-axis.y)*size*.5;
+  const u=(x+.5-startX)/(size*axis.x),v=(y+.5-startY)/(size*axis.y);
+  if(u<0||u>1||v<0||v>1)return null;
+  return {x:clamp(u*(G-1),0,G-1),y:clamp(v*(G-1),0,G-1)};
+}
 function resampleHeight(){
-  const out=new Float32Array(OUT*OUT);
-  for(let y=0;y<OUT;y++)for(let x=0;x<OUT;x++)out[y*OUT+x]=bilinearField(height,G,G,x/(OUT-1)*(G-1),y/(OUT-1)*(G-1))[0];
+  const out=new Float32Array(OUT*OUT),seabed=+$('pSea').value;
+  for(let y=0;y<OUT;y++)for(let x=0;x<OUT;x++){
+    const source=exportSourceAt(x,y);
+    out[y*OUT+x]=source?bilinearField(height,G,G,source.x,source.y)[0]:seabed;
+  }
   return out;
 }
 function writeEXR(hf,flip){
@@ -3108,53 +3158,96 @@ function writeEXR(hf,flip){
 }
 function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
 
-function buildMaterialMaskCanvas(){
-  const small=document.createElement('canvas');small.width=small.height=G;
-  const sg=small.getContext('2d'),im=sg.createImageData(G,G);
-  for(let i=0;i<G*G;i++){
-    const o=i*4;im.data[o]=maskRGB[i*3];im.data[o+1]=maskRGB[i*3+1];im.data[o+2]=maskRGB[i*3+2];im.data[o+3]=255;
+function buildExportMaterialData(){
+  const data=new Uint8ClampedArray(OUT*OUT*3);
+  for(let y=0;y<OUT;y++)for(let x=0;x<OUT;x++){
+    const source=exportSourceAt(x,y),o=(y*OUT+x)*3;
+    if(!source){data[o]=0;data[o+1]=255;data[o+2]=0;continue;}
+    const m=bilinearField(maskRGB,G,G,source.x,source.y,3);
+    data[o]=m[0];data[o+1]=m[1];data[o+2]=m[2];
+    normalizeMaterialPixel(data,o);
   }
-  sg.putImageData(im,0,0);
-  const big=document.createElement('canvas');big.width=big.height=OUT;
-  const bg=big.getContext('2d');bg.imageSmoothingEnabled=true;
-  if($('flipY').checked){bg.translate(0,OUT);bg.scale(1,-1);}
-  bg.drawImage(small,0,0,OUT,OUT);
-  return big;
+  return data;
 }
-function buildTreeMaskCanvas(){
-  const small=document.createElement('canvas');small.width=small.height=G;
-  const sg=small.getContext('2d'),im=sg.createImageData(G,G);
-  for(let y=0;y<G;y++)for(let x=0;x<G;x++){
-    const i=idx(x,y),v=treeAllowedAt(i,x,y)?255:0,o=i*4;
-    im.data[o]=v;im.data[o+1]=v;im.data[o+2]=v;im.data[o+3]=255;
+function canvasFromRGBData(rgb){
+  const raw=document.createElement('canvas');raw.width=raw.height=OUT;
+  const g=raw.getContext('2d'),im=g.createImageData(OUT,OUT);
+  for(let i=0;i<OUT*OUT;i++){
+    im.data[i*4]=rgb[i*3];im.data[i*4+1]=rgb[i*3+1];im.data[i*4+2]=rgb[i*3+2];im.data[i*4+3]=255;
   }
-  sg.putImageData(im,0,0);
+  g.putImageData(im,0,0);
+  if(!$('flipY').checked)return raw;
   const out=document.createElement('canvas');out.width=out.height=OUT;
-  const g=out.getContext('2d');g.imageSmoothingEnabled=false;
-  if($('flipY').checked){g.translate(0,OUT);g.scale(1,-1);}
-  g.drawImage(small,0,0,OUT,OUT);
+  const og=out.getContext('2d');og.imageSmoothingEnabled=false;og.translate(0,OUT);og.scale(1,-1);og.drawImage(raw,0,0);
   return out;
+}
+function buildMaterialMaskCanvas(materialData=buildExportMaterialData()){
+  return canvasFromRGBData(materialData);
+}
+function buildTreeMaskCanvas(materialData=buildExportMaterialData()){
+  const rgb=new Uint8ClampedArray(OUT*OUT*3);
+  for(let y=0;y<OUT;y++)for(let x=0;x<OUT;x++){
+    const source=exportSourceAt(x,y),pixel=y*OUT+x,o=pixel*3;
+    let allowed=false;
+    if(source){
+      const sx=clamp(Math.round(source.x),0,G-1),sy=clamp(Math.round(source.y),0,G-1),i=idx(sx,sy);
+      // This is the exact client contract: tree permission AND vegetation B.
+      allowed=treePermissionAt(i,sx,sy)&&materialData[o+2]>=128;
+    }
+    const v=allowed?255:0;rgb[o]=v;rgb[o+1]=v;rgb[o+2]=v;
+  }
+  return canvasFromRGBData(rgb);
 }
 
-function buildHeightPreviewCanvas(){
-  const small=document.createElement('canvas');small.width=small.height=G;
-  const sg=small.getContext('2d'),im=sg.createImageData(G,G),sea=+$('pSea').value,peak=Math.max(+$('pPeak').value,visualPeak||0);
-  for(let i=0;i<G*G;i++){
-    const v=clamp((height[i]-sea)/(peak-sea),0,1)*255,o=i*4;
-    im.data[o]=im.data[o+1]=im.data[o+2]=v;im.data[o+3]=255;
+function buildHeightPreviewCanvas(heightData=resampleHeight()){
+  const rgb=new Uint8ClampedArray(OUT*OUT*3),sea=+$('pSea').value,peak=Math.max(+$('pPeak').value,visualPeak||0);
+  for(let i=0;i<OUT*OUT;i++){
+    const v=clamp((heightData[i]-sea)/Math.max(.001,peak-sea),0,1)*255,o=i*3;
+    rgb[o]=rgb[o+1]=rgb[o+2]=v;
   }
-  sg.putImageData(im,0,0);
-  const out=document.createElement('canvas');out.width=out.height=OUT;
-  const og=out.getContext('2d');og.imageSmoothingEnabled=true;
-  if($('flipY').checked){og.translate(0,OUT);og.scale(1,-1);}
-  og.drawImage(small,0,0,OUT,OUT);
-  return out;
+  return canvasFromRGBData(rgb);
 }
 function canvasBlob(canvas,type='image/png',quality){
   return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('canvas export failed')),type,quality));
 }
 function projectData(){
-  return {format:'TERRA GEN SCULPT',version:2,grid:G,settings:{sea:+$('pSea').value,land:+$('pLand').value,peak:+$('pPeak').value,seed:terrainSeed,baseTemplate,islandKind,world:worldSize||8192,terrainAspect,grid:G,exportSize:OUT,heightScale:+$('pHeightScale').value,maskPreview:$('maskPreviewMode').value,maskOpacity:+$('pMaskOpacity').value,showContours:!!$('showContours').checked,geoSource:geoSourceMeta,materialChannels:{r:'rock/detail 0',g:'sediment/detail 1',b:'vegetation/detail 2'},treeSettings:{radius:+$('pTreeRadius').value,density:+$('pTreeDensity').value,patch:+$('pTreePatch').value,seed:forestSeed,showContours:!!$('showTreeContours').checked}},height:arrayToB64(height),mask:arrayToB64(maskRGB),override:arrayToB64(overrideA),treeMask:arrayToB64(treeMask),treeAutoMask:arrayToB64(treeAutoMask)};
+  return {format:'TERRA GEN SCULPT',version:3,grid:G,settings:{sea:+$('pSea').value,land:+$('pLand').value,peak:+$('pPeak').value,seed:terrainSeed,baseTemplate,islandKind,world:worldSize||8192,terrainAspect,grid:G,exportSize:OUT,previewHeightScale:+$('pHeightScale').value,flipY:!!$('flipY').checked,sandLimit:+$('pSandLimit').value,maskPreview:$('maskPreviewMode').value,maskOpacity:+$('pMaskOpacity').value,showContours:!!$('showContours').checked,geoSource:geoSourceMeta,materialChannels:{r:'rock classification/detail 0 (reserved by current renderer)',g:'ground/detail 1',b:'vegetation/detail 2'},treeSettings:{radius:+$('pTreeRadius').value,density:+$('pTreeDensity').value,patch:+$('pTreePatch').value,seed:forestSeed,showContours:!!$('showTreeContours').checked}},height:arrayToB64(height),mask:arrayToB64(maskRGB),override:arrayToB64(overrideA),treeMask:arrayToB64(treeMask),treeAutoMask:arrayToB64(treeAutoMask),treeMaterialOverride:arrayToB64(treeMaterialOverrideA)};
+}
+function metasiberiaManifest(){
+  const dims=terrainWorldDimensions();
+  return {
+    format:'TERRA GEN → METASIBERIA',version:1,
+    files:{height:'terra_gen_height.exr',materialMask:'terra_gen_material_mask.png',treeMask:'terra_gen_tree_mask.png'},
+    section:{x:0,y:0,widthMeters:worldSize||8192,contentWidthMeters:Math.round(dims.width),contentHeightMeters:Math.round(dims.height),rectangularContentPaddedToSquare:Math.abs(terrainAspect-1)>1e-6},
+    terrainHeightScale:1,defaultTerrainZ:+$('pSea').value,waterZ:0,waterEnabled:true,
+    raster:{width:OUT,height:OUT,flipY:!!$('flipY').checked,sculptGrid:G,metasiberiaScatteringCompatible:OUT===1024},
+    treeRule:'tree mask >= 128 AND material B >= 128',
+    currentMaterialRenderer:{detail1:'base ground/sediment',detail2:'vegetation selected by B',detail0:'colour not rendered separately',detailHeight0:'optional rock micro-height used on R-classified terrain',detail3:'not rendered'}
+  };
+}
+function metasiberiaWorldSettingsText(manifest=metasiberiaManifest()){
+  return [
+    'METASIBERIA WORLD SETTINGS / НАСТРОЙКИ МИРА','',
+    'Terrain section x / x секции: '+manifest.section.x,
+    'Terrain section y / y секции: '+manifest.section.y,
+    'Height map URL / URL карты высот: '+manifest.files.height,
+    'Mask map URL / URL карты маски: '+manifest.files.materialMask,
+    'Tree mask URL / URL карты маски деревьев: '+manifest.files.treeMask,
+    'Terrain section width / Ширина секции рельефа: '+manifest.section.widthMeters+' m',
+    'Terrain height scale / Масштаб высоты рельефа: 1.0',
+    'Default terrain z / Базовая высота вне секции: '+manifest.defaultTerrainZ+' m',
+    'Water z / Координата воды: '+manifest.waterZ+' m',
+    'Water / Вода: enabled / включена','',
+    'Content / Содержимое: '+manifest.section.contentWidthMeters+' × '+manifest.section.contentHeightMeters+' m'+(manifest.section.rectangularContentPaddedToSquare?' (centred in square seabed padding / вписано в квадрат с полями морского дна)':''),
+    'Raster / Растр: '+manifest.raster.width+' × '+manifest.raster.height+' px; flip Y '+(manifest.raster.flipY?'ON':'OFF'),
+    ...(manifest.raster.metasiberiaScatteringCompatible?[]:['WARNING / ВНИМАНИЕ: current Metasiberia scattering expects 1024 × 1024.']),
+    'Sculpt grid / Сетка скульпта: '+manifest.raster.sculptGrid+'² (authoring only / только редактирование)','',
+    'Required detail colour 1: base ground/sediment texture / основной грунт, осадок.',
+    'Required detail colour 2: vegetation texture / растительность.',
+    'Optional detail height 0: grayscale rock micro-height / микрорельеф камня в градациях серого.',
+    'Current renderer does not show detail colour 0 and 3 separately.',
+    'Tree rule / Условие деревьев: '+manifest.treeRule+'.'
+  ].join('\n');
 }
 $('exportEXR').onclick=()=>{
   $('status').textContent='resampling '+OUT+'² heightfield…';
@@ -3164,7 +3257,7 @@ $('exportEXR').onclick=()=>{
     download('terra_gen_height.exr',new Blob([bytes],{type:'image/x-exr'}));
     let mn=Infinity,mx=-Infinity;for(const v of hf){mn=Math.min(mn,v);mx=Math.max(mx,v);}
     const dims=terrainWorldDimensions();
-    $('status').textContent=`EXR exported · ${mn.toFixed(1)}–${mx.toFixed(1)} m · ${Math.round(dims.width)} × ${Math.round(dims.height)} m terrain · use ${(+$('pHeightScale').value||800)/100}× height scale in Substrata`;
+    $('status').textContent=`EXR exported · ${mn.toFixed(1)}–${mx.toFixed(1)} m · ${Math.round(dims.width)} × ${Math.round(dims.height)} m content · Metasiberia section ${worldSize} m · height scale 1.0`;
   },20);
 };
 async function exportCanvasFile(canvas,filename,statusText){
@@ -3209,29 +3302,39 @@ $('exportBundle').onclick=async()=>{
   try{
     const zip=new JSZip();
     const hf=resampleHeight();
+    const materialData=buildExportMaterialData();
+    const manifest=metasiberiaManifest();
     zip.file('terra_gen_height.exr',writeEXR(hf,$('flipY').checked));
-    zip.file('terra_gen_material_mask.png',await canvasBlob(buildMaterialMaskCanvas()));
-    zip.file('terra_gen_tree_mask.png',await canvasBlob(buildTreeMaskCanvas()));
-    zip.file('terra_gen_height_preview.png',await canvasBlob(buildHeightPreviewCanvas()));
+    zip.file('terra_gen_material_mask.png',await canvasBlob(buildMaterialMaskCanvas(materialData)));
+    zip.file('terra_gen_tree_mask.png',await canvasBlob(buildTreeMaskCanvas(materialData)));
+    zip.file('terra_gen_height_preview.png',await canvasBlob(buildHeightPreviewCanvas(hf)));
     zip.file('terra_gen_project.json',JSON.stringify(projectData()));
+    zip.file('metasiberia_manifest.json',JSON.stringify(manifest,null,2));
+    zip.file('METASIBERIA_WORLD_SETTINGS.txt',metasiberiaWorldSettingsText(manifest));
     zip.file('README.txt',[
       'TERRA GEN → METASIBERIA EXPORT','',
       'terra_gen_height.exr → URL карты высот',
       'terra_gen_material_mask.png → URL карты маски',
       'terra_gen_tree_mask.png → URL карты маски деревьев','',
-      'Material mask channels (normalized RGB weights):',
-      'R = detail 0 = rock / камень',
-      'G = detail 1 = sediment, sand, soil / осадок, песок, грунт',
+      'Material mask channels:',
+      'R = rock classification / классификация камня (current renderer reserves detail 0)',
+      'G = detail 1 = base ground, sediment, sand / основной грунт, осадок, песок',
       'B = detail 2 = vegetation / растительность','',
+      'Current Metasiberia renderer displays detail 1 and detail 2; detail 0 and detail 3 are not separate rendered layers yet.','',
+      'Optional detail height map 0 adds grayscale rock micro-relief where the material mask is R.','',
       'Tree mask:',
-      'WHITE = trees allowed / деревья разрешены',
+      'WHITE = trees allowed AND material B >= 128 / деревья разрешены и B >= 128',
       'BLACK = no trees / деревья запрещены',
       'PNG is fully opaque; alpha is not used.',
       'Water is controlled by terrain height and water level, not the material mask.',
       'Orientation flip: '+($('flipY').checked?'enabled':'disabled'),
-      'World size: '+Math.round(terrainWorldDimensions().width)+' × '+Math.round(terrainWorldDimensions().height)+' m',
+      'Metasiberia square section width: '+(worldSize||8192)+' m',
+      'Terrain content: '+Math.round(terrainWorldDimensions().width)+' × '+Math.round(terrainWorldDimensions().height)+' m (rectangular content is padded, never stretched)',
+      'Metasiberia terrain height scale: 1.0',
       geoSourceMeta?'Real terrain source: '+geoSourceMeta.provider+' · mapping '+geoSourceMeta.mapping:'Real terrain source: none',
-      'Heightmap, material mask and tree mask: '+OUT+' × '+OUT+' px'
+      'Heightmap, material mask and tree mask: '+OUT+' × '+OUT+' px',
+      '',
+      'See METASIBERIA_WORLD_SETTINGS.txt for exact client fields.'
     ].join('\n'));
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     download('terra_gen_export.zip',blob);
@@ -3241,7 +3344,7 @@ $('exportBundle').onclick=async()=>{
   }finally{btn.disabled=false;}
 };
 $('loadProject').onclick=()=>$('projectFile').click();
-$('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const d=JSON.parse(t);if(!['TERRA GEN SCULPT','TERRA/FORGE SCULPT'].includes(d.format))throw Error('incompatible project'); if(d.grid&&d.grid!==G){ if($('pResolution'))$('pResolution').value=String(d.grid); G=d.grid; height=new Float32Array(G*G); autoRGB=new Uint8ClampedArray(G*G*3); maskRGB=new Uint8ClampedArray(G*G*3); overrideA=new Uint8ClampedArray(G*G); treeMask=new Uint8ClampedArray(G*G); treeAutoMask=new Uint8ClampedArray(G*G); display=ctx.createImageData(G,G); }snapshot();height=b64ToArray(d.height,Float32Array);maskRGB=b64ToArray(d.mask,Uint8ClampedArray);overrideA=b64ToArray(d.override,Uint8ClampedArray);treeMask=d.treeMask?normalizeTreeMask(b64ToArray(d.treeMask,Uint8ClampedArray)):new Uint8ClampedArray(G*G);treeAutoMask=d.treeAutoMask?b64ToArray(d.treeAutoMask,Uint8ClampedArray):buildAutomaticForestMask();$('pSea').value=d.settings.sea;$('pLand').value=d.settings.land;$('pPeak').value=d.settings.peak;
+$('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const d=JSON.parse(t);if(!['TERRA GEN SCULPT','TERRA/FORGE SCULPT'].includes(d.format))throw Error('incompatible project'); if(d.grid&&d.grid!==G){ if($('pResolution'))$('pResolution').value=String(d.grid); G=d.grid; height=new Float32Array(G*G); autoRGB=new Uint8ClampedArray(G*G*3); maskRGB=new Uint8ClampedArray(G*G*3); overrideA=new Uint8ClampedArray(G*G); treeMask=new Uint8ClampedArray(G*G); treeAutoMask=new Uint8ClampedArray(G*G); treeMaterialOverrideA=new Uint8ClampedArray(G*G); display=ctx.createImageData(G,G); }snapshot();height=b64ToArray(d.height,Float32Array);maskRGB=b64ToArray(d.mask,Uint8ClampedArray);overrideA=b64ToArray(d.override,Uint8ClampedArray);treeMask=d.treeMask?normalizeTreeMask(b64ToArray(d.treeMask,Uint8ClampedArray)):new Uint8ClampedArray(G*G);treeAutoMask=d.treeAutoMask?b64ToArray(d.treeAutoMask,Uint8ClampedArray):buildAutomaticForestMask();treeMaterialOverrideA=d.treeMaterialOverride?b64ToArray(d.treeMaterialOverride,Uint8ClampedArray):new Uint8ClampedArray(G*G);$('pSea').value=d.settings.sea;$('pLand').value=d.settings.land;$('pPeak').value=d.settings.peak;
   refreshVisualPeak();
   if(Number.isFinite(d.settings.seed)){terrainSeed=d.settings.seed;$('pSeed').value=terrainSeed;}
   if(d.settings.baseTemplate){baseTemplate=d.settings.baseTemplate;document.querySelectorAll('[data-template]').forEach(b=>b.classList.toggle('primary',b.dataset.template===baseTemplate));}
@@ -3251,7 +3354,11 @@ $('projectFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().th
 
   if(Number.isFinite(d.settings.world)){worldSize=d.settings.world;if($('pWorldSize'))$('pWorldSize').value=String(worldSize);}
   if(Number.isFinite(d.settings.exportSize)){OUT=d.settings.exportSize;if($('pExportSize'))$('pExportSize').value=String(OUT);}
-  if(d.settings.heightScale)$('pHeightScale').value=d.settings.heightScale;else if(d.settings.previewScale)$('pHeightScale').value=Math.max(100,d.settings.previewScale);
+  if(Number.isFinite(d.settings.previewHeightScale))$('pHeightScale').value=d.settings.previewHeightScale;
+  else if(d.settings.heightScale)$('pHeightScale').value=d.settings.heightScale;
+  else if(d.settings.previewScale)$('pHeightScale').value=Math.max(100,d.settings.previewScale);
+  if(Number.isFinite(d.settings.sandLimit))$('pSandLimit').value=d.settings.sandLimit;
+  if(typeof d.settings.flipY==='boolean')$('flipY').checked=d.settings.flipY;
   if(d.settings.maskPreview)$('maskPreviewMode').value=d.settings.maskPreview;
   if(Number.isFinite(d.settings.maskOpacity))$('pMaskOpacity').value=d.settings.maskOpacity;
   if(typeof d.settings.showContours==='boolean')$('showContours').checked=d.settings.showContours;
@@ -3344,15 +3451,16 @@ function updateMapSizeInfo(){
   const m=worldSize||8192,g=G,out=OUT,dims=terrainWorldDimensions(),width=Math.round(dims.width),heightMeters=Math.round(dims.height);
   const cellX=(dims.width/g).toFixed(1),cellY=(dims.height/g).toFixed(1);
   const ru=(store.getItem('terra-gen-lang')||'en')==='ru';
+  const exportNote=out===1024?(ru?'совместимо с рассеиванием Metasiberia':'Metasiberia scattering compatible'):(ru?'экспериментально: рассеивание клиента рассчитано на 1024 px':'experimental: client scattering expects 1024 px');
   const el=$('mapSizeInfo');
   if(el) el.textContent=ru
-    ? ('Размер террейна: '+width+' × '+heightMeters+' м · сетка '+g+'×'+g+' · экспорт '+out+'×'+out+' px · ячейка ~'+cellX+' × '+cellY+' м')
-    : ('Terrain size: '+width+' × '+heightMeters+' m · grid '+g+'×'+g+' · export '+out+'×'+out+' px · cell ~'+cellX+' × '+cellY+' m');
+    ? ('Содержимое: '+width+' × '+heightMeters+' м · квадратная секция Metasiberia: '+m+' м · сетка '+g+'×'+g+' · экспорт '+out+'×'+out+' px ('+exportNote+') · ячейка ~'+cellX+' × '+cellY+' м')
+    : ('Content: '+width+' × '+heightMeters+' m · Metasiberia square section: '+m+' m · grid '+g+'×'+g+' · export '+out+'×'+out+' px ('+exportNote+') · cell ~'+cellX+' × '+cellY+' m');
   const h3=$('hud3dWorld'); if(h3) h3.textContent=width+' × '+heightMeters;
   const ft=$('footerSize');
   if(ft) ft.textContent=ru
-    ? (g+'² сетка скульпта → '+out+'² экспорт · мир '+width+' × '+heightMeters+' м')
-    : (g+'² sculpt grid → '+out+'² export · '+width+' × '+heightMeters+' m world');
+    ? (g+'² сетка скульпта → '+out+'² экспорт · содержимое '+width+' × '+heightMeters+' м · секция '+m+' м')
+    : (g+'² sculpt grid → '+out+'² export · '+width+' × '+heightMeters+' m content · '+m+' m section');
   // scale 3D plane so larger worlds read slightly larger in preview
   if(typeof mesh3!=='undefined' && mesh3){
     const s=m/8192,axis=terrainAxisScale();
@@ -3418,7 +3526,7 @@ if($('pWorldSize')){
 function resizeGrid(newG){
   newG=+newG|0; if(newG===G||newG<64||newG>1024) return;
   snapshot();
-  const oldG=G, oldH=new Float32Array(height), oldM=new Uint8ClampedArray(maskRGB), oldO=new Uint8ClampedArray(overrideA), oldT=new Uint8ClampedArray(treeMask);
+  const oldG=G, oldH=new Float32Array(height), oldM=new Uint8ClampedArray(maskRGB), oldO=new Uint8ClampedArray(overrideA), oldT=new Uint8ClampedArray(treeMask), oldTM=new Uint8ClampedArray(treeMaterialOverrideA);
   G=newG;
   height=new Float32Array(G*G);
   autoRGB=new Uint8ClampedArray(G*G*3);
@@ -3426,13 +3534,18 @@ function resizeGrid(newG){
   overrideA=new Uint8ClampedArray(G*G);
   treeMask=new Uint8ClampedArray(G*G);
   treeAutoMask=new Uint8ClampedArray(G*G);
+  treeMaterialOverrideA=new Uint8ClampedArray(G*G);
   for(let y=0;y<G;y++)for(let x=0;x<G;x++){
     const ox=x/(G-1)*(oldG-1), oy=y/(G-1)*(oldG-1);
+    const nearestX=clamp(Math.round(ox),0,oldG-1),nearestY=clamp(Math.round(oy),0,oldG-1),nearestI=nearestY*oldG+nearestX;
     height[y*G+x]=bilinearField(oldH,oldG,oldG,ox,oy)[0];
     const m=bilinearField(oldM,oldG,oldG,ox,oy,3);
-    const i=(y*G+x)*3; maskRGB[i]=m[0];maskRGB[i+1]=m[1];maskRGB[i+2]=m[2];
-    overrideA[y*G+x]=bilinearField(oldO,oldG,oldG,ox,oy)[0]>127?255:0;
-    treeMask[y*G+x]=bilinearField(oldT,oldG,oldG,ox,oy)[0]>127?255:0;
+    const i=(y*G+x)*3; maskRGB[i]=m[0];maskRGB[i+1]=m[1];maskRGB[i+2]=m[2];normalizeMaterialPixel(maskRGB,i);
+    // Overrides and tree edits are categorical, never continuous fields.
+    // In particular 128 means FORCE ADD while 255 means FORCE BLOCK.
+    overrideA[y*G+x]=oldO[nearestI]?255:0;
+    treeMask[y*G+x]=oldT[nearestI];
+    treeMaterialOverrideA[y*G+x]=oldTM[nearestI]?255:0;
   }
   // display buffer
   try{ display=ctx.createImageData(G,G); }catch(e){}
@@ -3525,6 +3638,7 @@ refreshPresetList();
   height.fill(sea);
   overrideA.fill(0);
   treeMask.fill(0);
+  treeMaterialOverrideA.fill(0);
   treeAutoMask.fill(0);
   generateAutoMask(true);
   undoStack.length = 0;
@@ -3864,6 +3978,16 @@ refreshPresetList();
   const RU={"HEIGHT": "ВЫСОТА", "MATERIALS": "МАТЕРИАЛЫ", "TREES": "ДЕРЕВЬЯ", "map size (meters)": "размер карты (метры)", "sculpt grid (cells)": "сетка скульпта (клетки)", "export file resolution (px)": "разрешение экспортируемых файлов (px)", "256 × 256 — fast": "256 × 256 — быстро", "512 × 512 — balanced": "512 × 512 — баланс", "768 × 768 — detailed": "768 × 768 — детально", "1024 × 1024 — max": "1024 × 1024 — макс.", "BASIC": "БАЗОВЫЕ", "SHAPE": "ФОРМА", "DETAIL": "ДЕТАЛИ", "STAMPS": "ШТАМПЫ", "ACTIVE ·": "АКТИВНО ·", "FLATTEN": "ВЫРОВНЯТЬ", "CLIFF": "УТЁС", "LAKE": "ОЗЕРО", "NOISE DETAIL": "ШУМ ДЕТАЛИ", "ERODE": "ЭРОЗИЯ", "FILL LEVEL": "ЗАЛИТЬ УРОВЕНЬ", "STAMP VOLCANO": "ШТАМП ВУЛКАН", "STAMP CRATER": "ШТАМП КРАТЕР", "STAMP HILL": "ШТАМП ХОЛМ", "target height": "целевая высота", "Hotkeys: 1-9 tools · [ ] radius · - = strength": "Хоткеи: 1-9 инструменты · [ ] радиус · - = сила · колесо зум · Alt+колесо радиус", "MASK": "МАСКА", "3D PREVIEW": "3D ПРЕВЬЮ", "UNDO": "ОТМЕНА", "REDO": "ПОВТОР", "MODE": "РЕЖИМ", "BASE TERRAIN": "БАЗОВЫЙ ТЕРРЕЙН", "ISLAND": "ОСТРОВ", "ARCHIPELAGO": "АРХИПЕЛАГ", "SQUARE": "КВАДРАТ", "BLANK OCEAN": "ПУСТОЙ ОКАН", "sea floor": "дно моря", "land base": "базовая высота суши", "maximum peak": "максимальная вершина", "terrain size": "размер террейна", "SCULPT TOOL": "ИНСТРУМЕНТ СКУЛЬПТА", "MOUNTAIN RANGE": "ХРЕБЕТ", "RAISE": "ПОДНЯТЬ", "LOWER": "ОПУСТИТЬ", "LOWLAND": "НИЗМЕННОСТЬ", "COAST / BEACH": "БЕРЕГ / ПЛЯЖ", "RIVER / VALLEY": "РЕКА / ДОЛИНА", "SMOOTH": "СГЛАДИТЬ", "CARVE SEA": "ВЫРЕЗАТЬ МОРЕ", "brush radius": "радиус кисти", "strength": "сила", "ridge sharpness": "острота хребта", "lowland target": "цель низменности", "MATERIAL MASK": "МАСКА МАТЕРИАЛОВ", "R · ROCK": "R · КАМЕНЬ", "G · SEDIMENT": "G · ОСАДОК", "B · VEGETATION": "B · РАСТИТЕЛЬНОСТЬ", "RESTORE AUTO": "ВЕРНУТЬ АВТО", "REBUILD AUTO": "ПЕРЕСОБРАТЬ АВТО", "ERASE BLACK": "СТЕРЕТЬ ЧЁРНОЕ", "TREE": "ДЕРЕВЬЯ", "ADD TREES": "ДОБАВИТЬ ДЕРЕВЬЯ", "BLOCK TREES": "ЗАПРЕТИТЬ ДЕРЕВЬЯ", "ERASE MANUAL": "СТЕРЕТЬ РУЧНОЕ", "REGENERATE FOREST": "ПЕРЕГЕНЕРИРОВАТЬ ЛЕС", "CLEAR MANUAL EDITS": "ОЧИСТИТЬ РУЧНЫЕ ПРАВКИ", "RESET TO AUTO": "СБРОСИТЬ В АВТО", "forest coverage": "покрытие лесом", "forest patch size": "размер лесных массивов", "tree preview": "превью деревьев", "RELIEF + TREES": "РЕЛЬЕФ + ДЕРЕВЬЯ", "TREE MASK ONLY": "ТОЛЬКО МАСКА ДЕРЕВЬЕВ", "show tree distribution": "показывать распределение деревьев", "overlay opacity": "прозрачность наложения", "sand height limit": "предел высоты песка", "show 20 m terrain contours": "показывать контуры рельефа через 20 м", "show tree exclusions": "показать исключения деревьев", "refresh automatic mask after sculpting": "обновлять автоматическую маску после скульпта", "preview / Substrata height scale": "масштаб высоты превью / Substrata", "RESET VIEW": "СБРОС ВИДА", "HISTORY": "ИСТОРИЯ", "PROJECT": "ПРОЕКТ", "SAVE": "СОХРАНИТЬ", "LOAD": "ЗАГРУЗИТЬ", "EXPORT": "ЭКСПОРТ", "EXR": "EXR", "ZIP": "ZIP", "HEIGHT PREVIEW PNG": "ПРЕВЬЮ ВЫСОТЫ PNG", "TREE MASK PNG": "МАСКА ДЕРЕВЬЕВ PNG", "EXPORT COMPATIBILITY": "СОВМЕСТИМОСТЬ ЭКСПОРТА", "Substrata orientation · flip vertically": "Ориентация Substrata · отразить по вертикали", "TERRAIN ONLY": "ТОЛЬКО ТЕРРЕЙН", "MASK ONLY": "ТОЛЬКО МАСКА", "RELIEF + MASK": "РЕЛЬЕФ + МАСКА", "preview": "предпросмотр", "BUILD": "СТРОИТЬ", "SELECT": "ВЫБОР", "MOVE": "ПЕРЕМЕЩЕНИЕ", "ROTATE": "ПОВОРОТ", "SCALE": "МАСШТАБ", "WALL": "СТЕНА", "ROOM": "КОМНАТА", "ARC": "ДУГА", "COLUMN": "КОЛОННА", "VAULT": "СВОД", "DOME": "КУПОЛ", "PLANE": "ПЛОСКОСТЬ", "SLAB": "ПЛИТА", "ROOF": "КРЫША", "OPENING": "ПРОЁМ", "DOOR": "ДВЕРЬ", "WINDOW": "ОКНО", "FLOOR": "ПОЛ", "CEILING": "ПОТОЛОК", "DELETE": "УДАЛИТЬ", "DUPLICATE": "ДУБЛИРОВАТЬ", "GROUP": "ГРУППА", "FOCUS": "ФОКУС", "CLEAR": "ОЧИСТИТЬ", "CLEAR ALL": "ОЧИСТИТЬ ВСЁ", "CLEAR SCENE": "ОЧИСТИТЬ СЦЕНУ", "PAINT SURFACE": "КРАСИТЬ ПОВЕРХНОСТЬ", "APPLY TO SELECTION": "ПРИМЕНИТЬ К ВЫБОРУ", "CENTER ON FLOOR": "ЦЕНТР НА ПОЛ", "WORLD": "МИР", "CENTER": "ЦЕНТР", "GLB": "GLB", "JSON": "JSON", "DOWNLOAD": "СКАЧАТЬ", "CONCRETE": "БЕТОН", "WOOD": "ДЕРЕВО", "CLAY / TERRACOTTA": "ГЛИНА / ТЕРРАКОТА", "METAL": "МЕТАЛЛ", "STONE": "КАМЕНЬ", "PLASTER": "ШТУКАТУРКА", "GENERATE": "СГЕНЕРИРОВАТЬ", "RANDOMIZE": "СЛУЧАЙНО", "BASE COLOR": "БАЗОВЫЙ ЦВЕТ", "NORMAL": "NORMAL", "ORM": "ORM", "LOAD SLOT": "ЗАГРУЗИТЬ СЛОТ", "UPDATE SLOT": "ОБНОВИТЬ СЛОТ", "ADD AS CUSTOM MATERIAL": "ДОБАВИТЬ КАК СВОЙ МАТЕРИАЛ", "ADD SLOT": "ДОБАВИТЬ СЛОТ", "MAPS ZIP": "ZIP КАРТ", "LIVE MATERIAL PREVIEW": "ЖИВОЙ ПРЕВЬЮ МАТЕРИАЛА", "MATERIAL": "МАТЕРИАЛ", "TEXTURE MAPS": "КАРТЫ ТЕКСТУР", "COUCH": "ДИВАН", "CHAIR": "СТУЛ", "TABLE / DESK": "СТОЛ / ПАРТА", "BED": "КРОВАТЬ", "DIMENSIONS": "РАЗМЕРЫ", "CONSTRUCTION": "КОНСТРУКЦИЯ", "MATERIAL ROLES": "РОЛИ МАТЕРИАЛОВ", "PRIMARY": "ОСНОВНОЙ", "SECONDARY": "ВТОРИЧНЫЙ", "ACCENT": "АКЦЕНТ", "FRAME": "РАМА", "GLASS": "СТЕКЛО", "BLANKET": "ОДЕЯЛО", "PILLOWS": "ПОДУШКИ", "TYPE": "ТИП", "VIEW": "ВИД", "SCENE": "СЦЕНА", "FIT / ISO": "ВПИСАТЬ / ISO", "FRONT": "СПЕРЕДИ", "SIDE": "СБОКУ", "IMPORT MATERIALS FROM PROJECT": "ИМПОРТ МАТЕРИАЛОВ ИЗ ПРОЕКТА", "CREATE": "СОЗДАТЬ", "CREATE STRUCTURE": "СОЗДАТЬ СТРУКТУРУ", "BUILD MATERIAL": "МАТЕРИАЛ СТРОЙКИ", "Light BG": "Светлый фон", "Dark BG": "Тёмный фон", "LIGHT BG": "СВЕТЛЫЙ ФОН", "DARK BG": "ТЁМНЫЙ ФОН", "PARAMETERS": "ПАРАМЕТРЫ", "TOOL PARAMETERS": "ПАРАМЕТРЫ ИНСТРУМЕНТА", "SELECTION": "ВЫБОР", "OUTLINER": "АУТЛАЙНЕР", "REFERENCE UNDERLAY": "ПОДЛОЖКА", "GRID SNAP": "ПРИВЯЗКА К СЕТКЕ", "ANGLE SNAP": "ПРИВЯЗКА УГЛА", "LOCAL": "ЛОКАЛЬНО", "APPLY TO SELECTED": "ПРИМЕНИТЬ К ВЫБРАННОМУ", "CUT OPENING": "ВЫРЕЗАТЬ ПРОЁМ", "COPY AI INSTRUCTIONS": "КОПИРОВАТЬ ИНСТРУКЦИИ ИИ", "DANGER ZONE": "ОПАСНАЯ ЗОНА", "LOCKED": "ЗАБЛОКИРОВАНО", "ATOLL": "АТОЛЛ", "PENINSULA": "ПОЛУОСТРОВ", "FJORD": "ФЬОРД", "CANYON": "КАНЬОН", "CRATER": "КРАТЕР", "CONTINENT SHELF": "ШЕЛЬФ", "RANDOMIZE SEED": "СЛУЧАЙНЫЙ SEED", "REGENERATE": "ПЕРЕГЕНЕРИРОВАТЬ", "POST PASSES": "ПОСТОБРАБОТКА", "EROSION": "ЭРОЗИЯ", "TERRACES": "ТЕРРАСЫ", "DUNES": "ДЮНЫ", "pass strength": "сила прохода", "TRANSFORM": "ТРАНСФОРМАЦИЯ", "MIRROR H": "ЗЕРКАЛО H", "MIRROR V": "ЗЕРКАЛО V", "IMPORT": "ИМПОРТ", "IMPORT HEIGHTMAP PNG": "ИМПОРТ HEIGHTMAP PNG", "Grayscale PNG/JPEG as height. Black → sea floor, white → peak. Replaces current field.": "PNG/JPEG в градациях серого как карта высот. Чёрное → дно моря, белое → вершина. Заменяет текущее поле.", "seed": "seed", "SOFT RAISE": "МЯГКИЙ ПОДЪЁМ", "HARD RAISE": "ЖЁСТКИЙ ПОДЪЁМ", "SOFT LOWER": "МЯГКОЕ ОПУСКАНИЕ", "HARD LOWER": "ЖЁСТКОЕ ОПУСКАНИЕ", "PINCH": "СЖАТИЕ", "INFLATE": "НАДУТЬ", "DEFLATE": "СДУТЬ", "CLAY BUILD": "ГЛИНА", "BLOB": "СГУСТОК", "AMPLIFY": "УСИЛИТЬ", "DAMPEN": "ОСЛАБИТЬ", "POLISH": "ПОЛИРОВКА", "SHARPEN": "ЗАТОЧИТЬ", "PLATEAU": "ПЛАТО", "RAMP": "ПАНДУС", "WALL RIDGE": "СТЕНА-ХРЕБЕТ", "BASIN": "КОТЛОВИНА", "GORGE": "УЩЕЛЬЕ", "BERM": "ВАЛ", "SADDLE": "СЕДЛОВИНА", "NOTCH": "ВЫРЕЗ", "SHELF": "ШЕЛЬФ", "COVE": "БУХТА", "SPIT": "КОСА", "CHANNEL": "КАНАЛ", "DELTA": "ДЕЛЬТА", "DEPOSIT": "НАНОС", "TERRACE": "ТЕРРАСЫ", "STRIATE": "ШТРИХИ", "RIPPLE": "РЯБЬ", "SCRATCH": "ЦАРАПИНА", "CRACK": "ТРЕЩИНА", "POCKMARK": "ВЫБОИНЫ", "PEBBLE": "ГАЛЬКА", "WEATHER": "ВЫВЕТРИВАНИЕ", "GRAIN": "ЗЕРНО", "VOLCANO": "ВУЛКАН", "HILL": "ХОЛМ", "CONE": "КОНУС", "MESA": "МЕСА", "CALDERA": "КАЛЬДЕРА", "RIDGE BLOB": "ГРЯДА", "SPIRE": "ШПИЛЬ", "PYRAMID": "ПИРАМИДА", "BOWL": "ЧАША", "ARCH": "АРКА", "ATOLL RING": "КОЛЬЦО АТОЛЛА", "TWIN HILLS": "ДВА ХОЛМА", "TOR ROCKS": "СКАЛЫ-ТОРЫ", "RAMP STAMP": "ШТАМП ПАНДУС", "SYMMETRY": "СИММЕТРИЯ", "BRUSH PRESETS": "ПРЕСЕТЫ КИСТИ", "SAVE PRESET": "СОХРАНИТЬ ПРЕСЕТ", "LOAD PRESET": "ЗАГРУЗИТЬ ПРЕСЕТ", "MIRROR X": "ЗЕРКАЛО X", "MIRROR Y": "ЗЕРКАЛО Y", "RADIAL 4": "РАДИАЛ 4", "world size": "размер мира", "resolution": "разрешение", "SLOPE AUTO MASK": "МАСКА ПО УКЛОНУ", "paint land only": "рисовать только по суше", "paint sea only": "рисовать только по морю", "ROCK": "СКАЛА", "DIRT": "ГРУНТ", "SNOW": "СНЕГ", "TERRA GEN · Terrain Editor": "TERRA GEN · Редактор террейна", "REAL": "РЕАЛЬНЫЕ", "UNREAL": "ФАНТАСТИЧЕСКИЕ", "CLASSIC VOLCANIC": "КЛАССИЧЕСКИЙ ВУЛКАНИЧЕСКИЙ", "HIGH MOUNTAINOUS": "ВЫСОКИЙ ГОРНЫЙ", "LOW CORAL CAY": "НИЗКИЙ КОРАЛЛОВЫЙ ОСТРОВ", "BARRIER / LONG": "БАРЬЕРНЫЙ / ДЛИННЫЙ", "TWIN LINKED": "ДВА СВЯЗАННЫХ", "TABLE / MESA": "СТОЛОВЫЙ / МЕСА", "RIAS / DROWNED": "РИАСОВЫЙ / ЗАТОПЛЕННЫЙ", "SPIT / SANDBAR": "КОСА / ПЕСЧАНАЯ ОТМЕЛЬ", "ARCH ROCKS": "СКАЛЬНЫЕ АРКИ", "RING DONUT": "КОЛЬЦО", "CRESCENT": "ПОЛУМЕСЯЦ", "STAR": "ЗВЕЗДА", "SPIRAL": "СПИРАЛЬ", "SERPENT": "ЗМЕЯ", "SHATTERED": "ОСКОЛКИ", "CRYSTAL SPIRES": "КРИСТАЛЬНЫЕ ШПИЛИ", "CLIFF PLATEAU": "ПЛАТО С ОБРЫВАМИ", "MUSHROOM CAP": "ГРИБНАЯ ШЛЯПКА", "HEART": "СЕРДЦЕ", "SKY NEEDLE": "НЕБЕСНАЯ ИГЛА", "LAGOON CHAIN": "ЦЕПЬ ЛАГУН", "ISLAND · CLASSIC": "ОСТРОВ · КЛАССИЧЕСКИЙ", "Now: world 8192 m · grid 512² · export 1024 px. 1024 is EXR pixel size, not world meters.": "Сейчас: мир 8192 м · сетка 512² · экспорт 1024 px. 1024 — размер EXR в пикселях, а не метрах мира.", "Active symmetry mirrors each stroke across the map center.": "Активная симметрия отражает каждый штрих относительно центра карты.", "Drag continuously to draw connected mountain ranges.": "Ведите кисть непрерывно, чтобы рисовать связанные горные хребты.", "Metasiberia: R = detail 0 (камень), G = detail 1 (осадок/песок), B = detail 2 (растительность). Каждый пиксель маски нормализуется: сумма каналов равна 255. Деревья управляются отдельной чёрно-белой PNG-маской.": "Metasiberia: R = detail 0 (rock), G = detail 1 (sediment/sand), B = detail 2 (vegetation). Every mask pixel is normalized so the channel sum equals 255. Trees are controlled by a separate black-and-white PNG mask.", "Trees use a separate opaque black-and-white mask. White permits trees; black forbids trees. In Metasiberia, tree placement also requires the vegetation material channel (B / detail 2). ADD TREES now sets both masks together.": "Деревья используют отдельную непрозрачную чёрно-белую маску. Белое разрешает деревья, чёрное запрещает. В Metasiberia размещение деревьев также требует канала материала растительности (B / detail 2). Команда «Добавить деревья» теперь изменяет обе маски одновременно.", "This affects only the preview and recommended Substrata setting; exported height values remain in meters.": "Это влияет только на превью и рекомендуемую настройку Substrata; экспортируемые значения высоты остаются в метрах.", "EXR uses one float channel named Y. Material mask: R rock/detail 0, G sediment/detail 1, B vegetation/detail 2. Tree mask is an opaque grayscale PNG: white = trees, black = no trees.": "EXR использует один float-канал Y. Маска материалов: R — камень/detail 0, G — осадок/detail 1, B — растительность/detail 2. Маска деревьев — непрозрачный PNG в градациях серого: белое — деревья, чёрное — без деревьев.", "deep sea → coast → lowland → mountain": "глубокое море → берег → низменность → горы", "R rock · detail 0": "R камень · detail 0", "G sediment · detail 1": "G осадок · detail 1", "B vegetation · detail 2": "B растительность · detail 2", "trees allowed": "деревья разрешены", "open grass / detail 3": "открытая трава / detail 3", "ready · choose a base terrain": "готово · выберите базовый террейн", "world": "мир", "grid": "сетка", "export": "экспорт", "cell": "ячейка", "Hotkeys: 1-9 tools · [ ] radius · - = strength · wheel zoom · Alt+wheel radius": "Горячие клавиши: 1–9 — инструменты · [ ] — радиус · - = — сила · колесо — масштаб · Alt+колесо — радиус", "AUTO BY HEIGHT AND SLOPE": "АВТО ПО ВЫСОТЕ И УКЛОНУ", "map size (meters) — square side": "размер карты (метры) — сторона квадрата"};
   Object.assign(RU,{"FORMS / TEMPLATES":"ФОРМЫ / ШАБЛОНЫ","CONTINENT":"КОНТИНЕНТ","VOLCANIC CONE":"ВУЛКАНИЧЕСКИЙ КОНУС","RIVER DELTA":"РЕЧНАЯ ДЕЛЬТА","VOLCANIC CHAIN":"ВУЛКАНИЧЕСКАЯ ЦЕПЬ","REEF ATOLL":"РИФОВЫЙ АТОЛЛ","DOUBLE CRATER":"ДВОЙНОЙ КРАТЕР","RING ISLAND":"КОЛЬЦЕВОЙ ОСТРОВ","DUNE FIELD":"ДЮННОЕ ПОЛЕ","TWIN ISLANDS":"ДВА ОСТРОВА","S-BAY":"S-БУХТА","LAKE BASIN":"ОЗЁРНЫЙ БАССЕЙН","TECTONIC RIFT":"ТЕКТОНИЧЕСКИЙ РАЗЛОМ","CORAL CHAIN":"КОРАЛЛОВАЯ ЦЕПОЧКА","BLANK OCEAN":"ПУСТОЙ ОКЕАН"});
   Object.assign(RU,{"MAP":"КАРТА","REAL MAP":"РЕАЛЬНАЯ КАРТА","REAL MAP · SELECT AREA":"РЕАЛЬНАЯ КАРТА · ВЫБОР ОБЛАСТИ","BACK TO EDITOR":"НАЗАД В РЕДАКТОР","POLYGON":"ПОЛИГОН","RECTANGLE":"ПРЯМОУГОЛЬНИК","FREEHAND":"СВОБОДНЫЙ КОНТУР","PAN MAP":"ПЕРЕМЕЩАТЬ КАРТУ","FINISH AREA":"ЗАВЕРШИТЬ ОБЛАСТЬ","UNDO POINT":"ОТМЕНИТЬ ТОЧКУ","CANCEL SELECTION":"ОТМЕНИТЬ ВЫДЕЛЕНИЕ","ADD TO TERRAIN EDITOR":"ДОБАВИТЬ В РЕДАКТОР","MAP VIEW":"ВИД КАРТЫ","ZOOM OUT":"УМЕНЬШИТЬ","ZOOM IN":"УВЕЛИЧИТЬ","CENTER MAP":"ЦЕНТРИРОВАТЬ КАРТУ","height mapping":"ПЕРЕНОС ВЫСОТ","RELATIVE RELIEF · FIT RANGE":"ОТНОСИТЕЛЬНЫЙ РЕЛЬЕФ · ПОДОГНАТЬ ДИАПАЗОН","ABSOLUTE METERS · CLAMP":"АБСОЛЮТНЫЕ МЕТРЫ · ОГРАНИЧИТЬ","terrain detail":"ДЕТАЛИЗАЦИЯ РЕЛЬЕФА","128 × 128 · fast":"128 × 128 · быстро","256 × 256 · balanced":"256 × 256 · баланс","512 × 512 · detailed":"512 × 512 · детально","maximum terrain side (meters)":"МАКСИМАЛЬНАЯ СТОРОНА ТЕРРЕЙНА (МЕТРЫ)","selection tool":"ИНСТРУМЕНТ ВЫДЕЛЕНИЯ","Choose a tool, outline an area on the map, then import its elevation into the editor.":"Выберите инструмент, обведите область на карте и импортируйте её высоты в редактор.","Map tiles: ":"Тайлы карты: ","Elevation: ":"Высоты: ","Fallback: ":"Резерв: "});
+  Object.assign(RU,{
+    "1024 × 1024 — Metasiberia":"1024 × 1024 — Metasiberia",
+    "2048 × 2048 — terrain only (experimental)":"2048 × 2048 — только террейн (экспериментально)",
+    "3D preview height exaggeration":"преувеличение высоты 3D-превью",
+    "Preview only. EXR already stores meters, so Metasiberia terrain height scale must be 1.0.":"Только предпросмотр. EXR уже хранит метры, поэтому масштаб высоты рельефа в Metasiberia должен быть 1.0.",
+    "Current Metasiberia renders detail 1 as ground and B/detail 2 as vegetation; R/detail 0 and detail 3 are not rendered separately yet. Tree mask is opaque: white = trees and B vegetation, black = no trees.":"Текущая Metasiberia отображает detail 1 как грунт, а B/detail 2 как растительность; R/detail 0 и detail 3 пока не рендерятся отдельно. Маска деревьев непрозрачна: белое = деревья и растительность B, чёрное = без деревьев.",
+    "trees forbidden":"деревья запрещены",
+    "m world · preview exaggeration · drag orbit · wheel zoom":"м мира · преувеличение превью · перетаскивание — вращение · колесо — масштаб",
+    "tree mask updated":"маска деревьев обновлена"
+  });
   delete RU['Metasiberia: R = detail 0 (камень), G = detail 1 (осадок/песок), B = detail 2 (растительность). Каждый пиксель маски нормализуется: сумма каналов равна 255. Деревья управляются отдельной чёрно-белой PNG-маской.'];
   Object.assign(RU,{
     "SETTINGS":"НАСТРОЙКИ","CLOSE":"ЗАКРЫТЬ","No area selected.":"Область не выбрана.","Ready to draw an area.":"Готово к выделению области.",
@@ -3942,7 +4066,7 @@ refreshPresetList();
     "Map centered on ·":"Карта перемещена к ·","Search failed ·":"Ошибка поиска ·","Map result":"Результат поиска","map view ·":"вид карты ·"
   });
   const EN=Object.fromEntries(Object.entries(RU).map(([k,v])=>[v,k]));
-  const ID_TIPS_EN={"lang_en": "Switch interface to English", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Edit terrain height with sculpting tools", "tabMask": "Edit the RGB material distribution mask", "tabTrees": "Edit areas where trees are allowed or forbidden", "tabMap": "Open a real-world map and select terrain to import", "tab3d": "Open the interactive 3D terrain preview", "undoTop": "Undo the last terrain, material, or tree edit", "redoTop": "Redo the last undone edit", "zoomOut2d": "Zoom out of the 2D map", "zoomIn2d": "Zoom into the 2D map", "resetView": "Reset the current 2D or 3D view", "saveProject": "Save the editable Terrain Gen project as JSON", "loadProject": "Load a previously saved Terrain Gen project", "exportEXR": "Export the floating-point EXR heightmap", "exportMask": "Export the RGB material mask PNG", "exportTrees": "Export the black-and-white tree permission mask PNG", "exportBundle": "Export EXR, masks, preview, project, and README in one ZIP", "btnRandomize": "Choose a new random terrain seed and regenerate", "btnRegenBase": "Regenerate the selected base terrain using the current settings", "btnErode": "Apply an erosion pass to the entire terrain", "btnTerraces": "Quantize terrain heights into terraces", "btnDunes": "Add dune-like relief to suitable low areas", "btnNoisePass": "Add procedural fine detail across the terrain", "btnMirrorH": "Mirror the full project horizontally", "btnMirrorV": "Mirror the full project vertically", "btnImportHeight": "Replace the terrain with an imported grayscale image", "symMirrorX": "Mirror each sculpt stroke across the vertical map axis", "symMirrorY": "Mirror each sculpt stroke across the horizontal map axis", "symRadial": "Repeat each sculpt stroke four times around the map center", "presetSave": "Save the current sculpt brush settings as a preset", "presetLoad": "Load the selected sculpt brush preset", "regenMask": "Rebuild the automatic material mask from terrain height and slope", "slopeAuto": "Assign materials automatically using height and steepness", "treeGenerateAuto": "Generate a new natural distribution of forest patches", "treeResetAuto": "Remove all manual tree edits and return to the automatic mask", "exportHeightPNG": "Export a grayscale PNG preview of the heightmap", "pSea": "Set the minimum seabed elevation", "pLand": "Set the base elevation of generated land", "pPeak": "Set the maximum generated and sculpted height", "pSeed": "Set the procedural terrain seed", "pPass": "Set the strength of global post-processing passes", "pWorldSize": "Choose the physical width and depth of the terrain in meters", "pResolution": "Choose the internal sculpting grid resolution", "pExportSize": "Choose the pixel resolution of all exported maps", "pRadius": "Set the sculpt brush radius", "pStrength": "Set the sculpt brush strength in meters", "pSharp": "Set the sharpness of the mountain ridge profile", "pLow": "Set the target elevation for level-based sculpt tools", "autoMask": "Automatically update unpainted material regions after sculpting", "pMaskRadius": "Set the material painting brush radius", "maskLandOnly": "Restrict material painting to sea", "maskSeaOnly": "Restrict material painting to sea", "maskPreviewMode": "Choose how the material mask is displayed", "pMaskOpacity": "Set material overlay opacity", "showContours": "Show height contour lines every 20 meters", "pSandLimit": "Set the height threshold used for sediment and beach material", "pTreeRadius": "Set the tree-mask brush radius", "pTreeDensity": "Set the amount of land covered by generated forest", "pTreePatch": "Set the average size and continuity of forest patches", "pHeightScale": "Change only the vertical scale of the 3D preview", "flipY": "Flip all exported maps vertically for Substrata or Metasiberia orientation compatibility", "projectFile": "Choose a Terrain Gen project file", "heightmapFile": "Choose a grayscale image to import as terrain height"};
+  const ID_TIPS_EN={"lang_en": "Switch interface to English", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Edit terrain height with sculpting tools", "tabMask": "Edit the RGB material distribution mask", "tabTrees": "Edit areas where trees are allowed or forbidden", "tabMap": "Open a real-world map and select terrain to import", "tab3d": "Open the interactive 3D terrain preview", "undoTop": "Undo the last terrain, material, or tree edit", "redoTop": "Redo the last undone edit", "zoomOut2d": "Zoom out of the 2D map", "zoomIn2d": "Zoom into the 2D map", "resetView": "Reset the current 2D or 3D view", "saveProject": "Save the editable Terrain Gen project as JSON", "loadProject": "Load a previously saved Terrain Gen project", "exportEXR": "Export the floating-point EXR heightmap", "exportMask": "Export the RGB material mask PNG", "exportTrees": "Export the black-and-white tree permission mask PNG", "exportBundle": "Export EXR, masks, preview, project, and README in one ZIP", "btnRandomize": "Choose a new random terrain seed and regenerate", "btnRegenBase": "Regenerate the selected base terrain using the current settings", "btnErode": "Apply an erosion pass to the entire terrain", "btnTerraces": "Quantize terrain heights into terraces", "btnDunes": "Add dune-like relief to suitable low areas", "btnNoisePass": "Add procedural fine detail across the terrain", "btnMirrorH": "Mirror the full project horizontally", "btnMirrorV": "Mirror the full project vertically", "btnImportHeight": "Replace the terrain with an imported grayscale image", "symMirrorX": "Mirror each sculpt stroke across the vertical map axis", "symMirrorY": "Mirror each sculpt stroke across the horizontal map axis", "symRadial": "Repeat each sculpt stroke four times around the map center", "presetSave": "Save the sculpt brush settings as a preset", "presetLoad": "Load the selected sculpt brush preset", "regenMask": "Rebuild the automatic material mask from terrain height and slope", "slopeAuto": "Assign materials automatically using height and steepness", "treeGenerateAuto": "Generate a new natural distribution of forest patches", "treeResetAuto": "Remove all manual tree edits and return to the automatic mask", "exportHeightPNG": "Export a grayscale PNG preview of the heightmap", "pSea": "Set the minimum seabed elevation", "pLand": "Set the base elevation of generated land", "pPeak": "Set the maximum generated and sculpted height", "pSeed": "Set the procedural terrain seed", "pPass": "Set the strength of global post-processing passes", "pWorldSize": "Choose the square Metasiberia section width in meters", "pResolution": "Choose the internal sculpting grid resolution", "pExportSize": "Choose raster resolution; 1024 is the current Metasiberia-compatible value", "pRadius": "Set the sculpt brush radius", "pStrength": "Set the sculpt brush strength in meters", "pSharp": "Set the sharpness of the mountain ridge profile", "pLow": "Set the target elevation for level-based sculpt tools", "autoMask": "Automatically update unpainted material regions after sculpting", "pMaskRadius": "Set the material painting brush radius", "maskLandOnly": "Restrict material painting to land", "maskSeaOnly": "Restrict material painting to sea", "maskPreviewMode": "Choose how the material mask is displayed", "pMaskOpacity": "Set material overlay opacity", "showContours": "Show height contour lines every 20 meters", "pSandLimit": "Set the height threshold used for sediment and beach material", "pTreeRadius": "Set the tree-mask brush radius", "pTreeDensity": "Set the amount of land covered by generated forest", "pTreePatch": "Set the average size and continuity of forest patches", "pHeightScale": "Change only the vertical scale of the 3D preview", "flipY": "Flip all exported maps vertically for Substrata or Metasiberia orientation compatibility", "projectFile": "Choose a Terrain Gen project file", "heightmapFile": "Choose a grayscale image to import as terrain height"};
   const ID_TIPS_RU={"lang_en": "Переключить интерфейс на английский язык", "lang_ru": "Переключить интерфейс на русский язык", "tabHeight": "Редактировать высоту террейна инструментами скульпта", "tabMask": "Редактировать RGB-маску распределения материалов", "tabTrees": "Редактировать области, где деревья разрешены или запрещены", "tab3d": "Открыть интерактивное 3D-превью террейна", "undoTop": "Отменить последнее изменение рельефа, материалов или деревьев", "redoTop": "Повторить последнее отменённое изменение", "zoomOut2d": "Уменьшить масштаб 2D-карты", "zoomIn2d": "Увеличить масштаб 2D-карты", "resetView": "Сбросить текущий 2D- или 3D-вид", "saveProject": "Сохранить редактируемый проект Terrain Gen в JSON", "loadProject": "Загрузить ранее сохранённый проект Terrain Gen", "exportEXR": "Экспортировать карту высот EXR с плавающей точкой", "exportMask": "Экспортировать RGB-маску материалов PNG", "exportTrees": "Экспортировать чёрно-белую маску разрешения деревьев PNG", "exportBundle": "Экспортировать EXR, маски, превью, проект и README одним ZIP-архивом", "btnRandomize": "Выбрать новый случайный seed и перегенерировать террейн", "btnRegenBase": "Перегенерировать выбранный базовый террейн с текущими настройками", "btnErode": "Применить эрозию ко всему рельефу", "btnTerraces": "Преобразовать высоты рельефа в террасы", "btnDunes": "Добавить дюнообразный рельеф на подходящих низких участках", "btnNoisePass": "Добавить процедурные мелкие детали по всему рельефу", "btnMirrorH": "Отразить весь проект по горизонтали", "btnMirrorV": "Отразить весь проект по вертикали", "btnImportHeight": "Заменить террейн импортированным изображением в градациях серого", "symMirrorX": "Отражать каждый штрих скульпта относительно вертикальной оси карты", "symMirrorY": "Отражать каждый штрих скульпта относительно горизонтальной оси карты", "symRadial": "Повторять каждый штрих четыре раза вокруг центра карты", "presetSave": "Сохранить текущие настройки кисти как пресет", "presetLoad": "Загрузить выбранный пресет кисти", "regenMask": "Пересобрать автоматическую маску материалов по высоте и уклону", "slopeAuto": "Автоматически назначить материалы по высоте и крутизне", "treeGenerateAuto": "Создать новое естественное распределение лесных массивов", "treeResetAuto": "Удалить все ручные правки деревьев и вернуть автоматическую маску", "exportHeightPNG": "Экспортировать чёрно-белое PNG-превью карты высот", "pSea": "Задать минимальную высоту морского дна", "pLand": "Задать базовую высоту генерируемой суши", "pPeak": "Задать максимальную высоту генерации и скульпта", "pSeed": "Задать seed процедурной генерации террейна", "pPass": "Задать силу глобальных постпроходов", "pWorldSize": "Выбрать физическую ширину и глубину террейна в метрах", "pResolution": "Выбрать внутреннее разрешение сетки скульпта", "pExportSize": "Выбрать разрешение всех экспортируемых карт в пикселях", "pRadius": "Задать радиус кисти скульпта", "pStrength": "Задать силу кисти скульпта в метрах", "pSharp": "Задать остроту профиля горного хребта", "pLow": "Задать целевую высоту для уровневых инструментов", "autoMask": "Автоматически обновлять незакрашенные области маски материалов после скульпта", "pMaskRadius": "Задать радиус кисти материалов", "maskLandOnly": "Ограничить рисование материалов только сушей", "maskSeaOnly": "Ограничить рисование материалов только морем", "maskPreviewMode": "Выбрать режим отображения маски материалов", "pMaskOpacity": "Задать прозрачность наложения материалов", "showContours": "Показывать линии высот через каждые 20 метров", "pSandLimit": "Задать высотный порог для осадка и пляжа", "pTreeRadius": "Задать радиус кисти маски деревьев", "pTreeDensity": "Задать долю суши, покрываемую сгенерированным лесом", "pTreePatch": "Задать средний размер и связность лесных массивов", "pHeightScale": "Изменить только вертикальный масштаб 3D-превью", "flipY": "Отразить все экспортируемые карты по вертикали для совместимости ориентации Substrata или Metasiberia", "projectFile": "Выбрать файл проекта Terrain Gen", "heightmapFile": "Выбрать изображение в градациях серого для импорта высот"};
   const TOOL_EN={"mountain": "Draw a connected mountain ridge along the brush stroke. Sharpness controls the ridge profile.", "raise": "Raise terrain under the brush.", "lower": "Lower terrain under the brush.", "softRaise": "Raise terrain with a soft edge falloff.", "hardRaise": "Raise terrain with a firm, nearly flat profile.", "softLower": "Lower terrain with a soft edge falloff.", "hardLower": "Lower terrain with a firm profile.", "pinch": "Pull surrounding heights toward the brush center.", "inflate": "Create a smooth dome under the brush.", "deflate": "Press a smooth depression into the terrain.", "clay": "Build terrain mass like adding clay.", "blob": "Add a soft Gaussian-shaped mound.", "amplify": "Increase local height differences.", "dampen": "Reduce local height differences.", "smooth": "Blend abrupt height changes.", "polish": "Apply strong smoothing for a polished surface.", "sharpen": "Increase fine relief contrast.", "flatten": "Flatten toward the average height under the brush.", "plateau": "Flatten toward the selected target height.", "ramp": "Create a slope along the stroke direction.", "cliff": "Create a steep step across the stroke direction.", "wall": "Draw a narrow raised wall along the stroke.", "basin": "Carve a broad bowl-shaped depression.", "gorge": "Carve a deep narrow gorge along the stroke.", "berm": "Create a ring-shaped embankment near the brush edge.", "saddle": "Lower the center to form a mountain saddle.", "notch": "Cut a narrow notch across the stroke.", "lake": "Carve a basin with a flat target water level.", "fill": "Move all heights under the brush toward the target level.", "lowland": "Blend terrain softly toward the target elevation.", "coast": "Shape broad beaches and low coastal shelves.", "shelf": "Shape a shallow coastal shelf.", "cove": "Carve a rounded cove toward low water.", "spit": "Build a narrow sand spit along the stroke.", "river": "Carve a connected river valley toward sea level.", "channel": "Carve a narrow channel along the stroke.", "delta": "Create a low fan-shaped river delta.", "sea": "Blend terrain down toward the sea floor.", "noise": "Add natural procedural surface detail.", "erode": "Move material downhill to imitate erosion.", "deposit": "Add accumulated material under the brush.", "terrace": "Quantize local heights into steps.", "striate": "Add parallel striations along the stroke.", "ripple": "Add concentric wavy relief.", "scratch": "Cut a thin scratch across the stroke.", "crack": "Cut a deeper narrow crack.", "pockmark": "Create scattered small depressions.", "pebble": "Add fine pebble-like surface noise.", "weather": "Soften and roughen terrain as weathering.", "grain": "Add very fine surface grain.", "stampVolcano": "Stamp a volcanic cone with a central crater.", "stampCrater": "Stamp an impact or volcanic crater with a rim.", "stampHill": "Stamp a smooth round hill.", "stampCone": "Stamp a straight cone.", "stampMesa": "Stamp a flat-topped mesa.", "stampCaldera": "Stamp a broad caldera with a raised rim.", "stampRidge": "Stamp an elongated ridge mound.", "stampSpire": "Stamp a sharp vertical spire.", "stampPyramid": "Stamp a four-sided pyramid.", "stampBowl": "Stamp a bowl-shaped depression.", "stampArch": "Stamp two raised supports resembling an arch.", "stampAtoll": "Stamp a ring-shaped atoll.", "stampTwin": "Stamp two neighboring hills.", "stampDunes": "Stamp a patch of parallel dunes.", "stampTor": "Stamp scattered tor-like rocks.", "stampRamp": "Stamp a directional ramp."};
   const TOOL_RU={"mountain": "Хребет вдоль движения кисти. Острота — слайдер sharpness.", "raise": "Поднять рельеф под кистью.", "lower": "Опустить рельеф под кистью.", "softRaise": "Мягкий подъём, сильный falloff к краям.", "hardRaise": "Жёсткий подъём, почти плоская «таблетка».", "softLower": "Мягкое опускание.", "hardLower": "Жёсткое опускание.", "pinch": "Тянет высоты к центру кисти.", "inflate": "Купол из центра кисти.", "deflate": "Обратный купол — вдавить центр.", "clay": "Нарастить массу как глиной.", "blob": "Мягкий сгусток (гаусс).", "amplify": "Усилить перепады относительно центра.", "dampen": "Ослабить перепады относительно центра.", "smooth": "Сгладить резкие перепады.", "polish": "Сильное сглаживание.", "sharpen": "Заострить детали (unsharp).", "flatten": "Плато по средней высоте под кистью.", "plateau": "Плато на target height.", "ramp": "Уклон вдоль направления штриха.", "cliff": "Обрыв поперёк штриха. Сила = высота уступа.", "wall": "Узкая стена-хребет вдоль штриха.", "basin": "Чаша / котловина.", "gorge": "Глубокое узкое ущелье вдоль штриха.", "berm": "Кольцевой вал у края кисти.", "saddle": "Седловина — понижение центра.", "notch": "Узкий вырез поперёк штриха.", "lake": "Озеро: чаша + уровень воды = target height.", "fill": "Залить всё под кистью к target height.", "lowland": "Смешать к target height мягко.", "coast": "Пляж ~2.5 m.", "shelf": "Прибрежный шельф.", "cove": "Бухта — сгладить к низкой воде.", "spit": "Узкая коса вдоль штриха.", "river": "Река/долина к уровню моря.", "channel": "Канал вдоль штриха.", "delta": "Веер дельты.", "sea": "Увести в море (sea floor).", "noise": "Крупный природный шум.", "erode": "Эрозия — осыпание вниз по склону.", "deposit": "Нанос материала.", "terrace": "Ступени/террасы.", "striate": "Штрихи вдоль штриха.", "ripple": "Волнистая рябь.", "scratch": "Тонкая царапина поперёк.", "crack": "Трещина вдоль направления.", "pockmark": "Точечные выбоины.", "pebble": "Мелкая «галька».", "weather": "Выветривание + лёгкий шум.", "grain": "Мелкое зерно поверхности.", "stampVolcano": "Штамп вулкана с кратером.", "stampCrater": "Штамп ударного кратера.", "stampHill": "Мягкий холм.", "stampCone": "Конус.", "stampMesa": "Столовая гора.", "stampCaldera": "Кальдера.", "stampRidge": "Гряда-штамп.", "stampSpire": "Острый шпиль.", "stampPyramid": "Пирамида.", "stampBowl": "Чаша-штамп.", "stampArch": "Две опоры / арка.", "stampAtoll": "Кольцо атолла.", "stampTwin": "Два холма рядом.", "stampDunes": "Дюны.", "stampTor": "Скальные торы.", "stampRamp": "Пандус-штамп."};
